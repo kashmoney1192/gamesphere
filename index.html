@@ -1,0 +1,3024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GameSphere Arcade</title>
+    <!-- Three.js for 3D Games -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap');
+
+        :root {
+            --bg-dark: #0f0f1a;
+            --bg-panel: #1a1a2e;
+            --primary: #00d4ff;
+            --secondary: #ff0055;
+            --accent: #eebb00;
+            --text: #ffffff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text);
+            font-family: 'Roboto', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- HEADER --- */
+        header {
+            background-color: rgba(0,0,0,0.5);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--primary);
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 20px;
+            color: var(--primary);
+            text-shadow: 2px 2px var(--secondary);
+        }
+
+        .game-info {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        /* --- MAIN CONTAINER --- */
+        #app-container {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* --- VIEWS --- */
+        .view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .view.active {
+            display: flex;
+            opacity: 1;
+            z-index: 10;
+        }
+
+        /* --- LOBBY --- */
+        #lobby-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 1000px;
+            overflow-y: auto;
+        }
+
+        .game-card {
+            background: var(--bg-panel);
+            border: 2px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .game-icon {
+            font-size: 40px;
+        }
+
+        .game-title {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* --- SETUP --- */
+        .setup-panel {
+            background: var(--bg-panel);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid var(--accent);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .setup-group {
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px;
+            background: #000;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 5px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: 0.2s;
+        }
+
+        .btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+        .btn-secondary { background: #555; color: white; }
+
+        /* --- GAME CONTAINER --- */
+        #game-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- DOM GAMES (Chess, 2048) --- */
+        #dom-game-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .interactive-layer { pointer-events: auto; }
+
+        /* Chess Styles */
+        .chess-board { 
+            display: grid; 
+            grid-template-columns: repeat(8, 1fr); 
+            grid-template-rows: repeat(8, 1fr);
+            width: min(90vmin, 600px); 
+            height: min(90vmin, 600px); 
+            border: 8px solid #444; 
+            background: #eee; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .square { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-size: min(8vmin, 45px); 
+            cursor: pointer; 
+            user-select: none;
+        }
+        .square.white { background: #f0d9b5; color: black; }
+        .square.black { background: #b58863; color: black; }
+        .square.selected { background: rgba(255, 255, 0, 0.6) !important; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .square.valid { position: relative; }
+        .square.valid::after { content: ''; position: absolute; width: 20%; height: 20%; background: rgba(0,0,0,0.3); border-radius: 50%; }
+
+        /* 2048 Styles */
+        .g2048-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #bbada0; padding: 10px; border-radius: 5px; width: 300px; height: 300px; }
+        .g2048-cell { background: #cdc1b4; border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #776e65; }
+        .tile-2 { background: #eee4da; } .tile-4 { background: #ede0c8; } .tile-8 { background: #f2b179; color: white; }
+        .tile-16 { background: #f59563; color: white; } .tile-32 { background: #f67c5f; color: white; } .tile-64 { background: #f65e3b; color: white; }
+        
+        /* Memory Styles */
+        .memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 300px; height: 300px; perspective: 1000px; }
+        
+        .memory-card { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            transform-style: preserve-3d; 
+            transition: transform 0.5s; 
+            cursor: pointer;
+        }
+        
+        .memory-card.flipped { transform: rotateY(180deg); }
+        .memory-card.matched { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+
+        .mem-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 5px;
+            font-size: 32px;
+            border: 2px solid #444;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* The side facing the user initially (The "Back" of the deck) */
+        .mem-front {
+            background-color: #222; 
+            color: var(--primary);
+            transform: rotateY(0deg);
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--primary);
+        }
+
+        /* The hidden side (The Face/Icon) */
+        .mem-back {
+            background-color: #eee; 
+            color: #000;
+            transform: rotateY(180deg);
+        }
+
+        /* --- OVERLAYS --- */
+        #ui-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        #ui-overlay.visible { display: flex; }
+        .overlay-title { font-family: 'Press Start 2P'; color: var(--primary); font-size: 30px; margin-bottom: 20px; text-align: center; }
+        .overlay-score { color: white; margin-bottom: 30px; font-size: 18px; }
+
+        #hud {
+            position: absolute; top: 10px; left: 0; width: 100%;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 20px;
+            pointer-events: none; font-family: 'Press Start 2P'; font-size: 12px; text-shadow: 1px 1px black;
+            z-index: 20;
+        }
+
+        .hud-btn {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid var(--secondary);
+            color: white;
+            font-family: 'Press Start 2P';
+            font-size: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .hud-btn:hover {
+            background: var(--secondary);
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">GAMESPHERE</div>
+        <div class="game-info" id="header-info">SELECT GAME</div>
+    </header>
+
+    <div id="app-container">
+        <!-- 1. LOBBY VIEW -->
+        <div id="view-lobby" class="view active">
+            <h2 style="font-family: 'Press Start 2P'; color:white; margin-top: 20px;">ARCADE MENU</h2>
+            <p style="font-family: 'Press Start 2P'; color: #ff0055; font-size: 10px; margin: 10px 0;">A Few Games are Still in Development</p>
+            <div id="lobby-grid">
+                <!-- Games injected by JS -->
+            </div>
+        </div>
+
+        <!-- 2. SETUP VIEW -->
+        <div id="view-setup" class="view">
+            <div class="setup-panel">
+                <h2 id="setup-title" class="logo">GAME SETUP</h2>
+                
+                <div class="setup-group">
+                    <label>Difficulty / Speed</label>
+                    <select id="setup-diff">
+                        <option value="easy">Easy (Slow)</option>
+                        <option value="medium" selected>Medium (Normal)</option>
+                        <option value="hard">Hard (Fast)</option>
+                    </select>
+                </div>
+
+                <!-- Added ID for toggling visibility -->
+                <div class="setup-group" id="setup-score-group">
+                    <label>Winning Condition</label>
+                    <select id="setup-score">
+                        <option value="0">Endless / High Score</option>
+                        <option value="5">First to 5</option>
+                        <option value="10" selected>First to 10</option>
+                        <option value="20">First to 20</option>
+                    </select>
+                </div>
+
+                <div class="setup-group">
+                    <label>Time Limit</label>
+                    <select id="setup-time">
+                        <option value="0">No Time Limit</option>
+                        <option value="60">1 Minute</option>
+                        <option value="180">3 Minutes</option>
+                        <option value="300">5 Minutes</option>
+                    </select>
+                </div>
+
+                <div style="display:flex; gap:10px; justify-content: center;">
+                    <button class="btn btn-secondary" onclick="App.showLobby()">BACK</button>
+                    <button class="btn" onclick="App.launchGame()">PLAY</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. GAME VIEW -->
+        <div id="view-game" class="view">
+            <div id="hud">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button class="hud-btn" onclick="App.togglePause()">MENU</button>
+                    <div id="hud-score">SCORE: 0</div>
+                </div>
+                <div id="hud-timer">TIME: --:--</div>
+            </div>
+            <div id="game-canvas-container">
+                <canvas id="main-canvas"></canvas>
+            </div>
+            <div id="dom-game-layer">
+                <!-- DOM based games render here -->
+            </div>
+            
+            <!-- Pause/End Overlay -->
+            <div id="ui-overlay">
+                <div class="overlay-title" id="overlay-title">PAUSED</div>
+                <div class="overlay-score" id="overlay-msg">Press ESC to Resume</div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" id="btn-resume" onclick="App.resumeGame()">RESUME</button>
+                    <button class="btn btn-secondary" onclick="App.quitGame()">MENU</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * GAMESPHERE ENGINE
+         * Handles state management, game registry, and shared utilities.
+         */
+        const App = (() => {
+            const state = {
+                currentView: 'lobby',
+                gameId: null,
+                gameConfig: {},
+                isPlaying: false,
+                isPaused: false,
+                score: 0,
+                startTime: 0,
+                timerInterval: null
+            };
+
+            const els = {
+                lobby: document.getElementById('view-lobby'),
+                setup: document.getElementById('view-setup'),
+                game: document.getElementById('view-game'),
+                grid: document.getElementById('lobby-grid'),
+                setupTitle: document.getElementById('setup-title'),
+                setupScoreGroup: document.getElementById('setup-score-group'), // NEW
+                setupScore: document.getElementById('setup-score'),
+                setupTime: document.getElementById('setup-time'),
+                hudScore: document.getElementById('hud-score'),
+                hudTime: document.getElementById('hud-timer'),
+                overlay: document.getElementById('ui-overlay'),
+                overlayTitle: document.getElementById('overlay-title'),
+                overlayMsg: document.getElementById('overlay-msg'),
+                btnResume: document.getElementById('btn-resume'),
+                canvas: document.getElementById('main-canvas'),
+                domLayer: document.getElementById('dom-game-layer')
+            };
+
+            const games = {};
+            let activeGameInstance = null;
+
+            // --- REGISTRY ---
+            function registerGame(id, meta, engine) {
+                games[id] = { meta, engine };
+                // Create card
+                const card = document.createElement('div');
+                card.className = 'game-card';
+                card.innerHTML = `<div class="game-icon">${meta.icon}</div><div class="game-title">${meta.title}</div>`;
+                card.onclick = () => selectGame(id);
+                els.grid.appendChild(card);
+            }
+
+            // --- NAVIGATION ---
+            function selectGame(id) {
+                state.gameId = id;
+                const game = games[id];
+                els.setupTitle.innerText = game.meta.title;
+                
+                // Logic to hide Score Limit for games that don't support it
+                if (game.meta.usesScoreLimit) {
+                    els.setupScoreGroup.style.display = 'block';
+                } else {
+                    els.setupScoreGroup.style.display = 'none';
+                    els.setupScore.value = "0"; // Default to endless
+                }
+
+                switchView('setup');
+            }
+
+            function showLobby() {
+                switchView('lobby');
+                state.gameId = null;
+            }
+
+            function switchView(viewName) {
+                document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+                if(viewName === 'lobby') els.lobby.classList.add('active');
+                if(viewName === 'setup') els.setup.classList.add('active');
+                if(viewName === 'game') els.game.classList.add('active');
+                state.currentView = viewName;
+            }
+
+            // --- GAME LOOP ---
+            function launchGame() {
+                const gameDef = games[state.gameId];
+                
+                // Only apply score limit if the game supports it
+                const scoreLimitVal = gameDef.meta.usesScoreLimit ? parseInt(els.setupScore.value) : 0;
+
+                const difficultyStr = document.getElementById('setup-diff').value;
+                const difficultyMultipliers = {
+                    'easy': { speed: 0.6, spawnRate: 0.6, size: 1.2, health: 1.5 },
+                    'medium': { speed: 1.0, spawnRate: 1.0, size: 1.0, health: 1.0 },
+                    'hard': { speed: 1.5, spawnRate: 1.5, size: 0.8, health: 0.7 }
+                };
+
+                const config = {
+                    scoreLimit: scoreLimitVal,
+                    timeLimit: parseInt(els.setupTime.value),
+                    difficulty: difficultyStr,
+                    diffMult: difficultyMultipliers[difficultyStr] || difficultyMultipliers['medium']
+                };
+                state.gameConfig = config;
+                state.score = 0;
+                state.isPlaying = true;
+                state.isPaused = false;
+                state.startTime = Date.now();
+
+                updateHUD();
+                // Hide score for racer game only
+                if (state.gameId === 'racer') {
+                    els.hudScore.style.display = 'none';
+                } else {
+                    els.hudScore.style.display = 'block';
+                }
+                startTimer();
+                
+                // Clear previous
+                els.domLayer.innerHTML = '';
+
+                // FIX: Recreate Canvas to reset Context (2D vs WebGL)
+                const container = document.getElementById('game-canvas-container');
+                container.innerHTML = ''; 
+                const newCanvas = document.createElement('canvas');
+                newCanvas.id = 'main-canvas';
+                container.appendChild(newCanvas);
+                els.canvas = newCanvas;
+                
+                // FIX: Switch view BEFORE init so canvas has dimensions (Fixes Black Screen)
+                switchView('game');
+                els.overlay.classList.remove('visible');
+
+                // Init Game
+                activeGameInstance = gameDef.engine;
+                activeGameInstance.init(els.canvas, els.domLayer, config, {
+                    onScore: addScore,
+                    onGameOver: gameOver
+                });
+                
+                gameLoop();
+            }
+
+            function gameLoop() {
+                if (!state.isPlaying) return;
+                if (!state.isPaused) {
+                    if (activeGameInstance.update) activeGameInstance.update();
+                    if (activeGameInstance.draw) activeGameInstance.draw();
+                }
+                requestAnimationFrame(gameLoop);
+            }
+
+            // --- SYSTEMS ---
+            function startTimer() {
+                if (state.timerInterval) clearInterval(state.timerInterval);
+                state.timerInterval = setInterval(() => {
+                    if(state.isPaused) return;
+                    
+                    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+                    const limit = state.gameConfig.timeLimit;
+                    
+                    let displayTime = elapsed;
+                    if (limit > 0) {
+                        const remaining = limit - elapsed;
+                        if (remaining <= 0) {
+                            gameOver("TIME UP");
+                            return;
+                        }
+                        displayTime = remaining;
+                    }
+
+                    const m = Math.floor(displayTime / 60).toString().padStart(2,'0');
+                    const s = (displayTime % 60).toString().padStart(2,'0');
+                    els.hudTime.innerText = `TIME: ${m}:${s}`;
+
+                }, 1000);
+            }
+
+            function addScore(points) {
+                state.score += points;
+                updateHUD();
+                
+                // Check win condition
+                if (state.gameConfig.scoreLimit > 0 && state.score >= state.gameConfig.scoreLimit) {
+                    gameOver("VICTORY!");
+                }
+            }
+
+            function updateHUD() {
+                els.hudScore.innerText = `SCORE: ${state.score}`;
+            }
+
+            function togglePause() {
+                if (!state.isPlaying || state.currentView !== 'game') return;
+                state.isPaused = !state.isPaused;
+                if (state.isPaused) {
+                    els.overlayTitle.innerText = "PAUSED";
+                    els.overlayMsg.innerText = "Game Paused";
+                    els.btnResume.style.display = 'inline-block';
+                    els.overlay.classList.add('visible');
+                } else {
+                    els.overlay.classList.remove('visible');
+                }
+            }
+
+            function resumeGame() {
+                state.isPaused = false;
+                els.overlay.classList.remove('visible');
+            }
+
+            function gameOver(reason = "GAME OVER") {
+                state.isPlaying = false;
+                clearInterval(state.timerInterval);
+                els.overlayTitle.innerText = reason;
+                els.overlayMsg.innerText = `Final Score: ${state.score}`;
+                els.btnResume.style.display = 'none';
+                els.overlay.classList.add('visible');
+            }
+
+            function quitGame() {
+                state.isPlaying = false;
+                clearInterval(state.timerInterval);
+                if (activeGameInstance.cleanup) activeGameInstance.cleanup();
+                showLobby();
+            }
+
+            // Global Input
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') togglePause();
+            });
+
+            return {
+                registerGame,
+                showLobby,
+                launchGame,
+                togglePause,
+                resumeGame,
+                quitGame
+            };
+        })();
+
+        /* =========================================
+           GAME IMPLEMENTATIONS
+           ========================================= */
+
+        // 1. NEON PONG (Canvas) - YES Score Limit
+        App.registerGame('pong', { title: 'Neon Pong', icon: '🏓', usesScoreLimit: true }, (() => {
+            let ctx, width, height;
+            let ball, p1, p2, callbacks;
+            let input = { w: false, s: false, up: false, down: false };
+            
+            function init(canvas, dom, config, cb) {
+                ctx = canvas.getContext('2d');
+                width = canvas.width = canvas.parentElement.clientWidth;
+                height = canvas.height = canvas.parentElement.clientHeight;
+                callbacks = cb;
+
+                p1 = { y: height/2 - 50, score: 0 };
+                p2 = { y: height/2 - 50, dy: 2 };
+                ball = { x: width/2, y: height/2, dx: 5, dy: 5, r: 8 };
+                
+                // Reset input
+                input = { w: false, s: false, up: false, down: false };
+
+                // Mouse Control
+                canvas.onmousemove = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    p1.y = e.clientY - rect.top - 50;
+                };
+
+                // Keyboard Control
+                window.addEventListener('keydown', onKey);
+                window.addEventListener('keyup', onKey);
+            }
+
+            function onKey(e) {
+                const s = (e.type === 'keydown');
+                const k = e.key.toLowerCase();
+                if(k === 'w') input.w = s;
+                if(k === 's') input.s = s;
+                if(k === 'arrowup') input.up = s;
+                if(k === 'arrowdown') input.down = s;
+            }
+
+            function update() {
+                // Keyboard Movement
+                if (input.w || input.up) p1.y -= 8;
+                if (input.s || input.down) p1.y += 8;
+
+                // Clamp Player Paddle
+                if (p1.y < 0) p1.y = 0;
+                if (p1.y + 100 > height) p1.y = height - 100;
+
+                // Ball
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                // Walls
+                if (ball.y < 0 || ball.y > height) ball.dy *= -1;
+
+                // Paddles
+                if (ball.x < 20 && ball.y > p1.y && ball.y < p1.y + 100) {
+                    ball.dx = Math.abs(ball.dx) + 0.5;
+                }
+                if (ball.x > width - 20 && ball.y > p2.y && ball.y < p2.y + 100) {
+                    ball.dx = -(Math.abs(ball.dx) + 0.5);
+                }
+
+                // AI
+                if (p2.y + 50 < ball.y) p2.y += 4;
+                else p2.y -= 4;
+                
+                // Clamp AI
+                if (p2.y < 0) p2.y = 0;
+                if (p2.y + 100 > height) p2.y = height - 100;
+
+                // Score
+                if (ball.x < 0) { 
+                    resetBall(); 
+                }
+                if (ball.x > width) { 
+                    callbacks.onScore(1); 
+                    resetBall(); 
+                }
+            }
+
+            function resetBall() {
+                ball.x = width/2; ball.y = height/2;
+                ball.dx = 5 * (Math.random() > 0.5 ? 1 : -1);
+                ball.dy = 5 * (Math.random() > 0.5 ? 1 : -1);
+            }
+
+            function draw() {
+                ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(10, p1.y, 10, 100); // P1
+                ctx.fillRect(width-20, p2.y, 10, 100); // AI
+                ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+                ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.moveTo(width/2, 0); ctx.lineTo(width/2, height); ctx.stroke();
+            }
+
+            function cleanup() {
+                window.removeEventListener('keydown', onKey);
+                window.removeEventListener('keyup', onKey);
+            }
+
+            return { init, update, draw, cleanup };
+        })());
+
+        // 2. CUBE RUNNER 3D (Three.js) - NO Score Limit
+        App.registerGame('cube3d', { title: 'Cube Runner 3D', icon: '🧊', usesScoreLimit: false }, (() => {
+            let scene, camera, renderer, player, obstacles = [];
+            let callbacks, frameId, speed = 0.5;
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                const w = canvas.parentElement.clientWidth;
+                const h = canvas.parentElement.clientHeight;
+
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x1a1a2e);
+                scene.fog = new THREE.Fog(0x1a1a2e, 10, 50);
+
+                camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
+                camera.position.set(0, 3, 10);
+                camera.lookAt(0, 0, -10);
+
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                renderer.setSize(w, h);
+
+                // Floor
+                const floorGeo = new THREE.PlaneGeometry(100, 1000);
+                const floorMat = new THREE.MeshBasicMaterial({ color: 0x222222, wireframe: true });
+                const floor = new THREE.Mesh(floorGeo, floorMat);
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.z = -500;
+                scene.add(floor);
+
+                // Player
+                const geo = new THREE.BoxGeometry(1, 1, 1);
+                const mat = new THREE.MeshNormalMaterial();
+                player = new THREE.Mesh(geo, mat);
+                player.position.y = 0.5;
+                scene.add(player);
+
+                obstacles = [];
+                speed = 0.5;
+
+                // Input
+                window.addEventListener('mousemove', onMove);
+            }
+
+            function onMove(e) {
+                const x = (e.clientX / window.innerWidth) * 2 - 1;
+                if(player) player.position.x = x * 10;
+            }
+
+            function update() {
+                speed += 0.001;
+                player.position.z -= speed;
+                camera.position.z = player.position.z + 10;
+
+                // Spawn obstacles
+                if (Math.random() < 0.05) {
+                    const geo = new THREE.BoxGeometry(1, 1, 1);
+                    const mat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+                    const obs = new THREE.Mesh(geo, mat);
+                    obs.position.set((Math.random() - 0.5) * 20, 0.5, player.position.z - 50);
+                    scene.add(obs);
+                    obstacles.push(obs);
+                }
+
+                // Collision & Cleanup
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    let obs = obstacles[i];
+                    if (obs.position.z > player.position.z + 5) {
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        callbacks.onScore(1); // Passed obstacle
+                    } else {
+                        // Simple AABB
+                        if (Math.abs(obs.position.x - player.position.x) < 1 && Math.abs(obs.position.z - player.position.z) < 1) {
+                            callbacks.onGameOver("CRASHED!");
+                        }
+                    }
+                }
+            }
+
+            function draw() {
+                renderer.render(scene, camera);
+            }
+
+            function cleanup() {
+                window.removeEventListener('mousemove', onMove);
+                // Clean up Three.js is more complex, basic dispose here
+                renderer.dispose();
+            }
+
+            return { init, update, draw, cleanup };
+        })());
+
+        // 3. CYBER SNAKE (Canvas) - NO Score Limit
+        App.registerGame('snake', { title: 'Cyber Snake', icon: '🐍', usesScoreLimit: false }, (() => {
+            let ctx, w, h, snake, food, dir, nextDir, size = 20, frames = 0;
+            let callbacks;
+
+            function init(canvas, dom, config, cb) {
+                ctx = canvas.getContext('2d');
+                w = canvas.width = canvas.parentElement.clientWidth;
+                h = canvas.height = canvas.parentElement.clientHeight;
+                callbacks = cb;
+                snake = [{x: 10, y: 10}];
+                food = spawnFood();
+                dir = {x: 1, y: 0};
+                nextDir = {x: 1, y: 0};
+                
+                window.addEventListener('keydown', onKey);
+            }
+
+            function spawnFood() {
+                return { 
+                    x: Math.floor(Math.random() * (w/size)), 
+                    y: Math.floor(Math.random() * (h/size)) 
+                };
+            }
+
+            function onKey(e) {
+                const k = e.key.toLowerCase();
+                // Added WASD support
+                if ((k === 'arrowup' || k === 'w') && dir.y === 0) nextDir = {x: 0, y: -1};
+                else if ((k === 'arrowdown' || k === 's') && dir.y === 0) nextDir = {x: 0, y: 1};
+                else if ((k === 'arrowleft' || k === 'a') && dir.x === 0) nextDir = {x: -1, y: 0};
+                else if ((k === 'arrowright' || k === 'd') && dir.x === 0) nextDir = {x: 1, y: 0};
+            }
+
+            function update() {
+                frames++;
+                if (frames % 5 !== 0) return;
+
+                dir = nextDir;
+                const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+                // Walls (Wrap)
+                if (head.x < 0) head.x = Math.floor(w/size)-1;
+                if (head.x >= w/size) head.x = 0;
+                if (head.y < 0) head.y = Math.floor(h/size)-1;
+                if (head.y >= h/size) head.y = 0;
+
+                // Self Collision
+                if (snake.some(s => s.x === head.x && s.y === head.y)) {
+                    callbacks.onGameOver("CRASHED!");
+                    return;
+                }
+
+                snake.unshift(head);
+
+                // Eat
+                if (head.x === food.x && head.y === food.y) {
+                    callbacks.onScore(1);
+                    food = spawnFood();
+                } else {
+                    snake.pop();
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = '#0f0f1a'; ctx.fillRect(0,0,w,h);
+                
+                // Grid
+                ctx.strokeStyle = '#1a1a2e';
+                for(let i=0; i<w; i+=size) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,h); ctx.stroke(); }
+                for(let i=0; i<h; i+=size) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(w,i); ctx.stroke(); }
+
+                // Snake
+                ctx.fillStyle = '#00d4ff';
+                snake.forEach(s => ctx.fillRect(s.x*size, s.y*size, size-2, size-2));
+
+                // Food
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(food.x*size, food.y*size, size-2, size-2);
+            }
+
+            function cleanup() { window.removeEventListener('keydown', onKey); }
+            return { init, update, draw, cleanup };
+        })());
+
+        // 4. GRAND CHESS (AI Enabled) - NO Score Limit (Win by King Capture)
+        App.registerGame('chess', { title: 'Grand Chess', icon: '♟️', usesScoreLimit: false }, (() => {
+            let board = [];
+            let selected = null;
+            let turn = 'white'; // Player is always White
+            let aiProcessing = false;
+            let callbacks;
+            let difficulty = 'medium';
+            
+            const pieces = {
+                r: '♜', n: '♞', b: '♝', q: '♛', k: '♚', p: '♟',
+                R: '♖', N: '♘', B: '♗', Q: '♕', K: '♔', P: '♙'
+            };
+
+            // Piece Values for AI
+            const weights = { p: 10, n: 30, b: 30, r: 50, q: 90, k: 900 };
+
+            // Piece-Square Tables (simplified) for Hard mode positioning
+            const pst = {
+                p: [ [0,0,0,0,0,0,0,0],[5,5,5,5,5,5,5,5],[1,1,2,3,3,2,1,1],[0.5,0.5,1,2.5,2.5,1,0.5,0.5],[0,0,0,2,2,0,0,0],[0.5,-0.5,-1,0,0,-1,-0.5,0.5],[0.5,1,1,-2,-2,1,1,0.5],[0,0,0,0,0,0,0,0] ],
+                n: [ [-5,-4,-3,-3,-3,-3,-4,-5],[-4,-2,0,0,0,0,-2,-4],[-3,0,1,1.5,1.5,1,0,-3],[-3,0.5,1.5,2,2,1.5,0.5,-3],[-3,0,1.5,2,2,1.5,0,-3],[-3,0.5,1,1.5,1.5,1,0.5,-3],[-4,-2,0,0.5,0.5,0,-2,-4],[-5,-4,-3,-3,-3,-3,-4,-5] ]
+            };
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                difficulty = config.difficulty || 'medium';
+                turn = 'white';
+                selected = null;
+                aiProcessing = false;
+                
+                // Clear canvas (using DOM only)
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#222'; ctx.fillRect(0,0,canvas.width, canvas.height);
+                
+                // Setup DOM
+                dom.innerHTML = `<div class="chess-board" id="cboard"></div>`;
+                const cboard = document.getElementById('cboard');
+                
+                initBoard();
+                renderBoard(cboard);
+            }
+
+            function initBoard() {
+                const r = "rnbqkbnr";
+                const p = "pppppppp";
+                const rows = [
+                    r, p, "88888888", "88888888", "88888888", "88888888", p.toUpperCase(), r.toUpperCase()
+                ];
+                
+                board = [];
+                for(let y=0; y<8; y++) {
+                    for(let x=0; x<8; x++) {
+                        let char = rows[y][x];
+                        let piece = (char === '8') ? null : { 
+                            type: char.toLowerCase(),
+                            color: (char === char.toUpperCase()) ? 'white' : 'black',
+                            raw: char
+                        };
+                        board.push({ x, y, piece });
+                    }
+                }
+            }
+
+            function getSquare(x, y) { return board.find(sq => sq.x === x && sq.y === y); }
+
+            function renderBoard(container) {
+                container.innerHTML = '';
+                board.forEach(sq => {
+                    const el = document.createElement('div');
+                    el.className = `square ${(sq.x + sq.y) % 2 === 0 ? 'white' : 'black'} interactive-layer`;
+                    
+                    if (selected && selected.x === sq.x && selected.y === sq.y) el.classList.add('selected');
+                    if (selected && isValidMove(selected, sq, board)) el.classList.add('valid');
+
+                    if (sq.piece) {
+                        el.innerText = pieces[sq.piece.raw];
+                        el.style.color = sq.piece.color === 'white' ? '#fff' : '#000';
+                        el.style.textShadow = sq.piece.color === 'white' ? '0 0 2px black' : '0 0 2px white';
+                    }
+
+                    el.onclick = () => handleHumanClick(sq, container);
+                    container.appendChild(el);
+                });
+            }
+
+            function handleHumanClick(clickedSq, container) {
+                if (turn !== 'white' || aiProcessing) return;
+
+                if (!selected) {
+                    if (clickedSq.piece && clickedSq.piece.color === 'white') {
+                        selected = clickedSq;
+                        renderBoard(container);
+                    }
+                    return;
+                }
+
+                if (clickedSq.x === selected.x && clickedSq.y === selected.y) {
+                    selected = null;
+                    renderBoard(container);
+                    return;
+                }
+                
+                if (clickedSq.piece && clickedSq.piece.color === 'white') {
+                    selected = clickedSq;
+                    renderBoard(container);
+                    return;
+                }
+
+                if (isValidMove(selected, clickedSq, board)) {
+                    executeMove(selected, clickedSq, board);
+                    selected = null;
+                    turn = 'black';
+                    renderBoard(container);
+                    
+                    // Trigger AI
+                    aiProcessing = true;
+                    setTimeout(() => makeAiMove(container), 500);
+                }
+            }
+
+            // --- CORE CHESS LOGIC ---
+
+            function executeMove(fromSq, toSq, boardState, dryRun=false) {
+                // Handle capture scoring (only for real game)
+                if (!dryRun && toSq.piece) {
+                    if (toSq.piece.type === 'k') callbacks.onGameOver(`${turn.toUpperCase()} WINS!`);
+                    // FIX: Score is now 1 per capture to fit Arcade "First to X" settings
+                    if (turn === 'white') callbacks.onScore(1); 
+                }
+
+                // Move
+                toSq.piece = fromSq.piece;
+                fromSq.piece = null;
+                
+                // Promotion
+                if (toSq.piece.type === 'p') {
+                    if ((toSq.piece.color === 'white' && toSq.y === 0) || (toSq.piece.color === 'black' && toSq.y === 7)) {
+                        toSq.piece.type = 'q';
+                        toSq.piece.raw = (toSq.piece.color === 'white') ? 'Q' : 'q';
+                    }
+                }
+            }
+
+            function isValidMove(fromSq, toSq, boardState) {
+                if (!fromSq.piece) return false;
+                const p = fromSq.piece;
+                const dx = Math.abs(toSq.x - fromSq.x);
+                const dy = Math.abs(toSq.y - fromSq.y);
+                
+                // Own piece check
+                if (toSq.piece && toSq.piece.color === p.color) return false;
+
+                const dir = (p.color === 'white') ? -1 : 1;
+
+                // MOVEMENT RULES & PATH CHECKS
+                switch (p.type) {
+                    case 'p':
+                        // Move 1
+                        if (dx === 0 && (toSq.y - fromSq.y) === dir && !toSq.piece) return true;
+                        // Move 2
+                        const startY = (p.color === 'white') ? 6 : 1;
+                        if (dx === 0 && (toSq.y - fromSq.y) === dir * 2 && fromSq.y === startY && !toSq.piece) {
+                             const mid = boardState.find(s => s.x === fromSq.x && s.y === fromSq.y + dir);
+                             if (!mid || mid.piece) return false; // Blocked
+                             return true;
+                        }
+                        // Capture
+                        if (dx === 1 && (toSq.y - fromSq.y) === dir && toSq.piece && toSq.piece.color !== p.color) return true;
+                        return false;
+                    
+                    case 'n': return (dx === 1 && dy === 2) || (dx === 2 && dy === 1);
+                    
+                    case 'k': return (dx <= 1 && dy <= 1);
+                    
+                    case 'r': 
+                        if (dx !== 0 && dy !== 0) return false;
+                        break; // Go to path check
+                    
+                    case 'b': 
+                        if (dx !== dy) return false;
+                        break; // Go to path check
+                    
+                    case 'q': 
+                        if (dx !== 0 && dy !== 0 && dx !== dy) return false;
+                        break; // Go to path check
+                        
+                    default: return false;
+                }
+
+                // PATH CHECKING (Rook, Bishop, Queen)
+                const sx = Math.sign(toSq.x - fromSq.x);
+                const sy = Math.sign(toSq.y - fromSq.y);
+                let cx = fromSq.x + sx;
+                let cy = fromSq.y + sy;
+                
+                while (cx !== toSq.x || cy !== toSq.y) {
+                    const mid = boardState.find(s => s.x === cx && s.y === cy);
+                    if (!mid || mid.piece) return false; // Blocked or Error
+                    cx += sx;
+                    cy += sy;
+                }
+                
+                return true;
+            }
+
+            // --- AI ENGINE ---
+
+            function makeAiMove(container) {
+                // Generate all possible moves for Black
+                const moves = generateMoves('black', board);
+                if (moves.length === 0) return; // Stale/Checkmate
+
+                let bestMove = null;
+
+                if (difficulty === 'easy') {
+                    // Easy: Random valid move, but take a hanging piece if extremely obvious
+                    if (Math.random() > 0.7) bestMove = moves.find(m => m.target.piece); 
+                    if (!bestMove) bestMove = moves[Math.floor(Math.random() * moves.length)];
+                } 
+                else if (difficulty === 'medium') {
+                    // Medium: Depth 2 Minimax (Look ahead 1 full turn)
+                    bestMove = getBestMoveMinimax(board, 2, true);
+                } 
+                else {
+                    // Hard: Depth 3 + Positional Eval
+                    bestMove = getBestMoveMinimax(board, 3, true);
+                }
+
+                // If minimax failed or returned null (rare), fallback to random
+                if (!bestMove) bestMove = moves[Math.floor(Math.random() * moves.length)];
+
+                // Execute on real board
+                const realFrom = getSquare(bestMove.from.x, bestMove.from.y);
+                const realTo = getSquare(bestMove.target.x, bestMove.target.y);
+                
+                executeMove(realFrom, realTo, board);
+                
+                turn = 'white';
+                aiProcessing = false;
+                renderBoard(container);
+            }
+
+            function generateMoves(color, boardState) {
+                const moves = [];
+                boardState.forEach(sq => {
+                    if (sq.piece && sq.piece.color === color) {
+                        // Check all squares for validity (Brute force is fine for 8x8 in JS)
+                        boardState.forEach(target => {
+                            if (isValidMove(sq, target, boardState)) {
+                                moves.push({ from: sq, target: target });
+                            }
+                        });
+                    }
+                });
+                return moves;
+            }
+
+            function evaluateBoard(boardState) {
+                let score = 0;
+                boardState.forEach(sq => {
+                    if (sq.piece) {
+                        const val = weights[sq.piece.type];
+                        let posVal = 0;
+                        
+                        // Hard Mode: Add positional bonuses
+                        if (difficulty === 'hard') {
+                            if (pst[sq.piece.type]) {
+                                // Flip Y for white
+                                let y = sq.y;
+                                if (sq.piece.color === 'white') y = 7 - y;
+                                posVal = pst[sq.piece.type][y][sq.x] * 10 || 0;
+                            }
+                        }
+
+                        if (sq.piece.color === 'black') score += (val + posVal);
+                        else score -= (val + posVal);
+                    }
+                });
+                return score;
+            }
+
+            // Minimax Algorithm
+            function getBestMoveMinimax(boardState, depth, isMaximizing) {
+                // Create a "virtual" board state map for recursion (deep cloning needed)
+                // Performance Hack: We will do/undo moves on the simplified objects to avoid full DOM copies
+                
+                // Helper to clone strictly data
+                const cloneBoard = (b) => b.map(s => ({ 
+                    x: s.x, y: s.y, 
+                    piece: s.piece ? { ...s.piece } : null 
+                }));
+
+                const moves = generateMoves(isMaximizing ? 'black' : 'white', boardState);
+                let bestMove = null;
+                let bestValue = isMaximizing ? -Infinity : Infinity;
+
+                // Shuffle moves to prevent predictable behavior on ties
+                moves.sort(() => Math.random() - 0.5);
+
+                for (let move of moves) {
+                    const simBoard = cloneBoard(boardState);
+                    const simFrom = simBoard.find(s => s.x === move.from.x && s.y === move.from.y);
+                    const simTo = simBoard.find(s => s.x === move.target.x && s.y === move.target.y);
+                    
+                    executeMove(simFrom, simTo, simBoard, true); // Dry run
+                    
+                    const value = minimax(simBoard, depth - 1, -Infinity, Infinity, !isMaximizing);
+
+                    if (isMaximizing) {
+                        if (value > bestValue) {
+                            bestValue = value;
+                            bestMove = move;
+                        }
+                    } else {
+                        if (value < bestValue) {
+                            bestValue = value;
+                            bestMove = move;
+                        }
+                    }
+                }
+                return bestMove || moves[0];
+            }
+
+            function minimax(boardState, depth, alpha, beta, isMaximizing) {
+                if (depth === 0) return evaluateBoard(boardState);
+
+                const moves = generateMoves(isMaximizing ? 'black' : 'white', boardState);
+                if (moves.length === 0) return evaluateBoard(boardState); // Terminal node
+
+                if (isMaximizing) {
+                    let maxEval = -Infinity;
+                    for (let move of moves) {
+                        // In-memory cloning for recursion safety
+                        const nextBoard = boardState.map(s => ({ x:s.x, y:s.y, piece:s.piece?{...s.piece}:null }));
+                        const simFrom = nextBoard.find(s => s.x === move.from.x && s.y === move.from.y);
+                        const simTo = nextBoard.find(s => s.x === move.target.x && s.y === move.target.y);
+                        executeMove(simFrom, simTo, nextBoard, true);
+
+                        const eval = minimax(nextBoard, depth - 1, alpha, beta, false);
+                        maxEval = Math.max(maxEval, eval);
+                        alpha = Math.max(alpha, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return maxEval;
+                } else {
+                    let minEval = Infinity;
+                    for (let move of moves) {
+                        const nextBoard = boardState.map(s => ({ x:s.x, y:s.y, piece:s.piece?{...s.piece}:null }));
+                        const simFrom = nextBoard.find(s => s.x === move.from.x && s.y === move.from.y);
+                        const simTo = nextBoard.find(s => s.x === move.target.x && s.y === move.target.y);
+                        executeMove(simFrom, simTo, nextBoard, true);
+
+                        const eval = minimax(nextBoard, depth - 1, alpha, beta, true);
+                        minEval = Math.min(minEval, eval);
+                        beta = Math.min(beta, eval);
+                        if (beta <= alpha) break;
+                    }
+                    return minEval;
+                }
+            }
+
+            return { init, update: ()=>{}, draw: ()=>{}, cleanup: ()=>{} };
+        })());
+
+        // 5. 2048 (DOM) - NO Score Limit
+        App.registerGame('2048', { title: '2048', icon: '🔢', usesScoreLimit: false }, (() => {
+            let grid = [];
+            let callbacks;
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                dom.innerHTML = `<div class="g2048-grid" id="grid2048"></div>`;
+                grid = Array(16).fill(0);
+                addNewTile();
+                addNewTile();
+                render(dom);
+                window.addEventListener('keydown', handleInput);
+            }
+
+            function handleInput(e) {
+                const k = e.key.toLowerCase();
+                // Added WASD support and call to move()
+                if(k === 'arrowleft' || k === 'a') move('left');
+                else if(k === 'arrowright' || k === 'd') move('right');
+                else if(k === 'arrowup' || k === 'w') move('up');
+                else if(k === 'arrowdown' || k === 's') move('down'); 
+            }
+
+            function move(dir) {
+                // 0: Left, 1: Up, 2: Right, 3: Down
+                let isVertical = (dir === 'up' || dir === 'down');
+                let isReverse = (dir === 'right' || dir === 'down');
+                
+                let moved = false;
+
+                for (let i = 0; i < 4; i++) { // 4 rows or 4 cols
+                    let line = [];
+                    // Extract line
+                    for (let j = 0; j < 4; j++) {
+                        let idx = isVertical ? (j * 4 + i) : (i * 4 + j);
+                        line.push(grid[idx]);
+                    }
+
+                    // If Right or Down, reverse so we can treat as Left/Up shift logic
+                    if (isReverse) line.reverse();
+
+                    // Shift & Merge Logic
+                    let newLine = line.filter(v => v !== 0); // Remove zeros
+                    for (let k = 0; k < newLine.length - 1; k++) {
+                        if (newLine[k] === newLine[k+1]) {
+                            newLine[k] *= 2;
+                            callbacks.onScore(1); // Score 1 point per merge (arcade style)
+                            newLine.splice(k+1, 1); // Remove merged tile
+                            // k increments in loop, skipping the next tile, which is correct behavior 
+                            // (prevents double merge in one move like 2-2-4-8 -> 4-4-8 -> 8-8 -> 16)
+                            // Actually standard 2048 allows only one merge per tile per move.
+                            // My loop logic: k checks k vs k+1. If merge, k becomes index of merged tile.
+                            // splice shortens array. Next iteration checks next pair.
+                        }
+                    }
+                    // Pad with zeros to length 4
+                    while (newLine.length < 4) newLine.push(0);
+
+                    // Reverse back if needed
+                    if (isReverse) newLine.reverse();
+
+                    // Put back into grid and check if changed
+                    for (let j = 0; j < 4; j++) {
+                        let idx = isVertical ? (j * 4 + i) : (i * 4 + j);
+                        if (grid[idx] !== newLine[j]) moved = true;
+                        grid[idx] = newLine[j];
+                    }
+                }
+                
+                if (moved) {
+                    addNewTile();
+                    render(document.getElementById('grid2048'));
+                }
+            }
+            
+            function render(dom) {
+                const el = document.getElementById('grid2048');
+                if(!el) return;
+                el.innerHTML = '';
+                grid.forEach((val, i) => {
+                    const d = document.createElement('div');
+                    d.className = `g2048-cell tile-${val || 2} interactive-layer`;
+                    d.innerText = val || '';
+                    // Tile Tap mechanics (simplified version of 2048 for this arcade)
+                    d.onclick = () => {
+                        if(val === 0) {
+                            grid[i] = 2; 
+                        } else {
+                            grid[i] *= 2;
+                            callbacks.onScore(1);
+                        }
+                        render(dom);
+                    };
+                    el.appendChild(d);
+                });
+            }
+
+            function addNewTile() {
+                let empty = grid.map((v,i)=>v===0?i:-1).filter(i=>i!==-1);
+                if(empty.length) grid[empty[Math.floor(Math.random()*empty.length)]] = 2;
+            }
+
+            return { init, update:()=>{}, draw:()=>{}, cleanup:()=>{ window.removeEventListener('keydown', handleInput); } };
+        })());
+
+        // 6. NEON BREAKOUT (Canvas) - NO Score Limit (Added Clear Condition)
+        App.registerGame('breakout', { title: 'Breakout', icon: '🧱', usesScoreLimit: false }, (() => {
+            let ctx, w, h;
+            let paddle, ball, bricks;
+            let callbacks;
+            let ballOnPaddle = true;
+            let baseSpeed = 7; // Default
+            
+            function init(canvas, dom, config, cb) {
+                ctx = canvas.getContext('2d');
+                w = canvas.width = canvas.parentElement.clientWidth;
+                h = canvas.height = canvas.parentElement.clientHeight;
+                callbacks = cb;
+                
+                // Configure Speed based on Difficulty
+                const baseSpeeds = { 'easy': 5, 'medium': 7, 'hard': 10 };
+                const diff = config.difficulty || 'medium';
+                baseSpeed = baseSpeeds[diff] || 7;
+
+                paddle = { x: w/2 - 60, y: h - 40, w: 120, h: 15 };
+                resetBall();
+                
+                // Create Bricks (Standard Layout)
+                bricks = [];
+                const rows = 5;
+                const cols = 8;
+                const padding = 10;
+                const brickW = (w - (padding * (cols + 1))) / cols;
+                const brickH = 20;
+                const offsetTop = 60;
+                const offsetLeft = padding;
+
+                for(let r=0; r<rows; r++) {
+                    for(let c=0; c<cols; c++) {
+                        bricks.push({ 
+                            x: offsetLeft + c*(brickW+padding), 
+                            y: offsetTop + r*(brickH+padding), 
+                            w: brickW, 
+                            h: brickH, 
+                            status: 1,
+                            color: `hsl(${r * 40}, 70%, 60%)`
+                        });
+                    }
+                }
+                
+                canvas.onmousemove = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    paddle.x = e.clientX - rect.left - paddle.w/2;
+                    // Clamp paddle
+                    if(paddle.x < 0) paddle.x = 0;
+                    if(paddle.x + paddle.w > w) paddle.x = w - paddle.w;
+                };
+
+                // Launch on Click
+                canvas.onmousedown = () => {
+                    if(ballOnPaddle) {
+                        ballOnPaddle = false;
+                        ball.dy = -baseSpeed;
+                        // Random horizontal launch angle scaled to speed
+                        ball.dx = (Math.random() * baseSpeed * 0.8) - (baseSpeed * 0.4); 
+                    }
+                };
+            }
+
+            function resetBall() {
+                ballOnPaddle = true;
+                ball = { x: w/2, y: h - 50, dx: 0, dy: 0, r: 8 };
+            }
+
+            function update() {
+                if (ballOnPaddle) {
+                    // Stick to paddle
+                    ball.x = paddle.x + paddle.w / 2;
+                    ball.y = paddle.y - ball.r;
+                } else {
+                    ball.x += ball.dx;
+                    ball.y += ball.dy;
+
+                    // Wall Collisions
+                    if(ball.x + ball.r > w || ball.x - ball.r < 0) ball.dx *= -1;
+                    if(ball.y - ball.r < 0) ball.dy *= -1;
+                    
+                    // Floor Collision (Death)
+                    if(ball.y - ball.r > h) {
+                        callbacks.onGameOver("LOST BALL");
+                        return;
+                    }
+
+                    // Paddle Collision
+                    if(ball.dy > 0 && ball.y + ball.r >= paddle.y && ball.x >= paddle.x && ball.x <= paddle.x + paddle.w) {
+                        ball.dy = -ball.dy; // Bounce up
+                        
+                        // Add "English" (spin) based on where it hits the paddle
+                        const hitPoint = ball.x - (paddle.x + paddle.w/2);
+                        ball.dx = hitPoint * 0.15; 
+                        
+                        // Speed up slightly (Cap relative to difficulty)
+                        const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
+                        const maxSpeed = baseSpeed * 2; // Cap at double the starting speed
+                        
+                        if(speed < maxSpeed) {
+                            ball.dx *= 1.05;
+                            ball.dy *= 1.05;
+                        }
+                    }
+
+                    // Brick Collision
+                    let activeBricks = 0;
+                    bricks.forEach(b => {
+                        if(b.status === 1) {
+                            activeBricks++;
+                            if(ball.x > b.x && ball.x < b.x + b.w && ball.y > b.y && ball.y < b.y + b.h) {
+                                ball.dy *= -1;
+                                b.status = 0;
+                                callbacks.onScore(1);
+                                activeBricks--;
+                            }
+                        }
+                    });
+
+                    if (activeBricks === 0) {
+                        callbacks.onGameOver("CLEARED!");
+                    }
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = '#111'; ctx.fillRect(0,0,w,h);
+                
+                // Paddle
+                ctx.fillStyle = '#00d4ff'; 
+                ctx.shadowBlur = 15; ctx.shadowColor = '#00d4ff';
+                ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+                ctx.shadowBlur = 0;
+
+                // Ball
+                ctx.fillStyle = '#fff'; 
+                ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+                
+                // Launch Hint
+                if(ballOnPaddle) {
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '12px Roboto';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("CLICK TO LAUNCH", paddle.x + paddle.w/2, paddle.y - 20);
+                }
+
+                // Bricks
+                bricks.forEach(b => {
+                    if(b.status) {
+                        ctx.fillStyle = b.color;
+                        ctx.shadowBlur = 5; ctx.shadowColor = b.color;
+                        ctx.fillRect(b.x, b.y, b.w, b.h);
+                        ctx.shadowBlur = 0;
+                    }
+                });
+            }
+
+            return { init, update, draw, cleanup: ()=>{} };
+        })());
+
+        // 7. GALAXY SHOOTER (Canvas) - NO Score Limit (Endless)
+        App.registerGame('shooter', { title: 'Galaxy Shooter', icon: '🚀', usesScoreLimit: false }, (() => {
+            let ctx, w, h;
+            let player, bullets, enemies, particles, stars;
+            let frames = 0, score = 0, callbacks;
+            let input = { left: false, right: false, up: false, down: false, fire: false };
+
+            function init(canvas, dom, config, cb) {
+                ctx = canvas.getContext('2d');
+                w = canvas.width = canvas.parentElement.clientWidth;
+                h = canvas.height = canvas.parentElement.clientHeight;
+                callbacks = cb;
+                
+                // Fixed: Reduced hitbox size (w/h) to match visual ship better (was 40x40)
+                player = { x: w/2, y: h-100, w: 20, h: 20, speed: 6, cooldown: 0 };
+                bullets = [];
+                enemies = [];
+                particles = [];
+                stars = [];
+                
+                for(let i=0; i<100; i++) {
+                    stars.push({
+                        x: Math.random() * w,
+                        y: Math.random() * h,
+                        size: Math.random() * 2,
+                        speed: 0.5 + Math.random() * 3
+                    });
+                }
+
+                window.addEventListener('keydown', onKey);
+                window.addEventListener('keyup', onKey);
+                
+                canvas.onmousedown = () => input.fire = true;
+                canvas.onmouseup = () => input.fire = false;
+                canvas.onmousemove = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    player.x = e.clientX - rect.left;
+                    player.y = e.clientY - rect.top;
+                };
+            }
+
+            function onKey(e) {
+                const s = (e.type === 'keydown');
+                const k = e.key.toLowerCase();
+                if(k === 'arrowleft' || k === 'a') input.left = s;
+                if(k === 'arrowright' || k === 'd') input.right = s;
+                if(k === 'arrowup' || k === 'w') input.up = s;
+                if(k === 'arrowdown' || k === 's') input.down = s;
+                if(k === ' ' || k === 'space') input.fire = s;
+            }
+
+            function spawnEnemy() {
+                const size = 30 + Math.random() * 20;
+                enemies.push({
+                    x: Math.random() * (w - size),
+                    y: -50,
+                    w: size,
+                    h: size,
+                    speed: 2 + Math.random() * 3,
+                    wobble: Math.random() * Math.PI * 2,
+                    color: `hsl(${Math.random() * 360}, 70%, 60%)`
+                });
+            }
+
+            function spawnExplosion(x, y, color) {
+                for(let i=0; i<10; i++) {
+                    particles.push({
+                        x: x, y: y,
+                        vx: (Math.random() - 0.5) * 10,
+                        vy: (Math.random() - 0.5) * 10,
+                        life: 1.0,
+                        color: color
+                    });
+                }
+            }
+
+            function update() {
+                frames++;
+
+                // Stars
+                stars.forEach(s => {
+                    s.y += s.speed;
+                    if(s.y > h) { s.y = 0; s.x = Math.random() * w; }
+                });
+
+                // Player
+                if(input.left) player.x -= player.speed;
+                if(input.right) player.x += player.speed;
+                if(input.up) player.y -= player.speed;
+                if(input.down) player.y += player.speed;
+
+                if(player.x < 0) player.x = 0;
+                if(player.x > w) player.x = w;
+                if(player.y < 0) player.y = 0;
+                if(player.y > h) player.y = h;
+
+                // Fire
+                if(player.cooldown > 0) player.cooldown--;
+                if(input.fire && player.cooldown <= 0) {
+                    bullets.push({ x: player.x, y: player.y - 20, w: 4, h: 15, speed: 15 });
+                    player.cooldown = 8;
+                }
+
+                // Bullets
+                for(let i = bullets.length - 1; i >= 0; i--) {
+                    bullets[i].y -= bullets[i].speed;
+                    if(bullets[i].y < 0) bullets.splice(i, 1);
+                }
+
+                // Enemies
+                if(frames % 40 === 0) spawnEnemy();
+                
+                for(let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    e.y += e.speed;
+                    e.x += Math.sin(e.y * 0.05 + e.wobble) * 2; 
+
+                    // FIX: Removed Game Over on Invasion. Just despawn enemy.
+                    if(e.y > h) {
+                        enemies.splice(i, 1);
+                        continue;
+                    }
+
+                    // Collision: Bullet vs Enemy
+                    for(let j = bullets.length - 1; j >= 0; j--) {
+                        let b = bullets[j];
+                        if (b.x > e.x - e.w/2 && b.x < e.x + e.w/2 &&
+                            b.y > e.y - e.h/2 && b.y < e.y + e.h/2) {
+                            
+                            spawnExplosion(e.x, e.y, e.color);
+                            callbacks.onScore(1);
+                            enemies.splice(i, 1);
+                            bullets.splice(j, 1);
+                            break; 
+                        }
+                    }
+                    
+                    // Collision: Player vs Enemy
+                    if (Math.abs(player.x - e.x) < (player.w + e.w)/2 &&
+                        Math.abs(player.y - e.y) < (player.h + e.h)/2) {
+                        spawnExplosion(player.x, player.y, '#fff');
+                        callbacks.onGameOver("CRASHED!");
+                    }
+                }
+
+                // Particles
+                for(let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.life -= 0.05;
+                    if(p.life <= 0) particles.splice(i, 1);
+                }
+            }
+
+            function draw() {
+                ctx.fillStyle = '#050510'; 
+                ctx.fillRect(0, 0, w, h);
+
+                ctx.fillStyle = '#ffffff';
+                stars.forEach(s => {
+                    ctx.globalAlpha = Math.random() * 0.5 + 0.5;
+                    ctx.fillRect(s.x, s.y, s.size, s.size);
+                });
+                ctx.globalAlpha = 1.0;
+
+                ctx.fillStyle = '#ffee00';
+                ctx.shadowBlur = 10; ctx.shadowColor = '#ffee00';
+                bullets.forEach(b => ctx.fillRect(b.x - b.w/2, b.y, b.w, b.h));
+                ctx.shadowBlur = 0;
+
+                enemies.forEach(e => {
+                    ctx.fillStyle = e.color;
+                    ctx.beginPath();
+                    ctx.moveTo(e.x, e.y + e.h/2);
+                    ctx.lineTo(e.x - e.w/2, e.y - e.h/2);
+                    ctx.lineTo(e.x + e.w/2, e.y - e.h/2);
+                    ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(e.x - 5, e.y - 5, 4, 4);
+                    ctx.fillRect(e.x + 1, e.y - 5, 4, 4);
+                });
+
+                ctx.fillStyle = '#00d4ff';
+                ctx.beginPath();
+                ctx.moveTo(player.x, player.y - 20); 
+                ctx.lineTo(player.x + 15, player.y + 10); 
+                ctx.lineTo(player.x, player.y); 
+                ctx.lineTo(player.x - 15, player.y + 10); 
+                ctx.fill();
+                
+                ctx.fillStyle = `rgba(255, 100, 0, ${Math.random()})`;
+                ctx.beginPath();
+                ctx.moveTo(player.x - 5, player.y + 5);
+                ctx.lineTo(player.x + 5, player.y + 5);
+                ctx.lineTo(player.x, player.y + 20);
+                ctx.fill();
+
+                particles.forEach(p => {
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+                    ctx.fill();
+                });
+                ctx.globalAlpha = 1.0;
+            }
+
+            function cleanup() {
+                window.removeEventListener('keydown', onKey);
+                window.removeEventListener('keyup', onKey);
+            }
+
+            return { init, update, draw, cleanup };
+        })());
+
+        // 8. MEMORY MATRIX (DOM) - NO Score Limit (Own Clear Logic)
+        App.registerGame('memory', { title: 'Memory Matrix', icon: '🃏', usesScoreLimit: false }, (() => {
+            let cards = [], flipped = [], matched = 0, callbacks;
+            const icons = ['🍎','🍌','🍒','🍇','🍉','🍋','🍍','🥝'];
+            let locked = false; // Prevent clicks while animating
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                matched = 0;
+                flipped = [];
+                locked = false;
+                cards = [];
+
+                // Create pairs
+                let deck = [...icons, ...icons].sort(() => Math.random() - 0.5);
+                
+                dom.innerHTML = '<div class="memory-grid" id="memgrid"></div>';
+                const grid = document.getElementById('memgrid');
+                
+                deck.forEach((icon, i) => {
+                    const card = document.createElement('div');
+                    card.className = 'memory-card interactive-layer';
+                    card.dataset.icon = icon;
+                    card.dataset.index = i;
+                    
+                    // 1. Front Face (The Pattern/Logo)
+                    const front = document.createElement('div');
+                    front.className = 'mem-face mem-front';
+                    front.innerText = '?';
+
+                    // 2. Back Face (The Fruit)
+                    const back = document.createElement('div');
+                    back.className = 'mem-face mem-back';
+                    back.innerText = icon;
+
+                    card.appendChild(front);
+                    card.appendChild(back);
+                    
+                    card.onclick = () => flip(card);
+                    
+                    grid.appendChild(card);
+                    cards.push(card);
+                });
+            }
+
+            function flip(card) {
+                // Logic Checks
+                if (locked) return;
+                if (card.classList.contains('flipped')) return; // Already flipped
+                if (card.classList.contains('matched')) return; // Already matched
+                
+                // Execute Flip
+                card.classList.add('flipped');
+                flipped.push(card);
+
+                if(flipped.length === 2) {
+                    checkForMatch();
+                }
+            }
+
+            function checkForMatch() {
+                const [c1, c2] = flipped;
+                
+                // Match?
+                if(c1.dataset.icon === c2.dataset.icon) {
+                    matched++;
+                    flipped = [];
+                    callbacks.onScore(1); // 1 point per match
+                    
+                    // Visual delay before disappearing
+                    setTimeout(() => {
+                        c1.classList.add('matched');
+                        c2.classList.add('matched');
+                        if(matched === 8) callbacks.onGameOver("CLEARED!");
+                    }, 600);
+                } else {
+                    // No Match - Flip back after delay
+                    locked = true;
+                    setTimeout(() => {
+                        c1.classList.remove('flipped');
+                        c2.classList.remove('flipped');
+                        flipped = [];
+                        locked = false;
+                    }, 1000);
+                }
+            }
+
+            return { init, update:()=>{}, draw:()=>{}, cleanup:()=>{} };
+        })());
+
+        // 9. CLICKER BLITZ (DOM) - YES Score Limit
+        App.registerGame('clicker', { title: 'Clicker Blitz', icon: '⚡', usesScoreLimit: true }, (() => {
+            let btn, callbacks, highScore;
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                highScore = config.scoreLimit || 0;
+
+                let html = `<button id="blitz-btn" class="btn interactive-layer" style="font-size:20px; padding:30px;">CLICK ME!</button>`;
+                if (highScore > 0) {
+                    html += `<div id="high-score-display" style="position: absolute; top: 60px; left: 20px; font-family: 'Press Start 2P'; font-size: 14px; color: #00d4ff; text-shadow: 2px 2px #000;">HIGH SCORE: ${highScore}</div>`;
+                }
+                dom.innerHTML = html;
+                btn = document.getElementById('blitz-btn');
+
+                btn.onclick = () => {
+                    callbacks.onScore(1);
+                    // Move button randomly
+                    const x = (Math.random() * 80) + 10;
+                    const y = (Math.random() * 80) + 10;
+                    btn.style.position = 'absolute';
+                    btn.style.left = x + '%';
+                    btn.style.top = y + '%';
+
+                    // Change color
+                    btn.style.backgroundColor = `hsl(${Math.random()*360}, 70%, 50%)`;
+                };
+            }
+            return { init, update:()=>{}, draw:()=>{}, cleanup:()=>{} };
+        })());
+
+        // 10. TURBO RIVALS (Three.js) - Shrinking Zone Racing
+        App.registerGame('racer', { title: 'Turbo Rivals', icon: '🏎️', usesScoreLimit: false }, (() => {
+            let scene, camera, renderer;
+            let cars = [];
+            let blocks = []; 
+            let checkpoint, arrow, dangerRing;
+            let arenaRadius = 150;
+            let gameActive = false;
+            let callbacks;
+            let input = { w:false, s:false, a:false, d:false, space:false };
+
+            // Physics Constants
+            const ACCEL = 0.05;
+            const MAX_SPEED = 1.5;
+            const FRICTION = 0.97;
+            const TURN_SPEED = 0.07;
+            const CAR_RADIUS = 2.0;
+            const BLOCK_RADIUS = 2.0;
+            const SHRINK_RATE = 0.04;
+            const MIN_RADIUS = 20;
+            const GRAVITY = 0.04;
+            const JUMP_FORCE = 0.8;
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                gameActive = true;
+                cars = [];
+                blocks = [];
+                arenaRadius = 150;
+                input = { w:false, s:false, a:false, d:false, space:false };
+
+                // 1. Setup Scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x87CEEB); 
+                scene.fog = new THREE.Fog(0x87CEEB, 40, 150);
+
+                const w = canvas.parentElement.clientWidth;
+                const h = canvas.parentElement.clientHeight;
+                camera = new THREE.PerspectiveCamera(60, w/h, 0.1, 1000);
+                camera.position.set(0, 8, -15); 
+
+                renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+                renderer.setSize(w, h);
+                renderer.shadowMap.enabled = true;
+
+                // 2. Lighting
+                const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+                scene.add(hemiLight);
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                dirLight.position.set(20, 50, 20);
+                dirLight.castShadow = true;
+                dirLight.shadow.mapSize.width = 2048;
+                dirLight.shadow.mapSize.height = 2048;
+                scene.add(dirLight);
+
+                // 3. Environment
+                const planeGeo = new THREE.PlaneGeometry(2000, 2000);
+                const planeMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
+                const ground = new THREE.Mesh(planeGeo, planeMat);
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                scene.add(ground);
+                scene.add(new THREE.GridHelper(2000, 200, 0xffffff, 0x444444));
+
+                // 4. Danger Ring
+                const ringGeo = new THREE.RingGeometry(0.95, 1, 64);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                dangerRing = new THREE.Mesh(ringGeo, ringMat);
+                dangerRing.rotation.x = -Math.PI / 2;
+                dangerRing.position.y = 0.1;
+                dangerRing.scale.set(arenaRadius, arenaRadius, 1);
+                scene.add(dangerRing);
+
+                // 5. Entities
+                const player = createCarEntity(true, 0xff0000);
+                player.mesh.position.set(0, 0.5, 0);
+                cars.push(player);
+
+                const rivalColors = [0x00d4ff, 0xffee00, 0x00ff00];
+                rivalColors.forEach((col, i) => {
+                    const bot = createCarEntity(false, col);
+                    bot.mesh.position.set((i+1)*5, 0.5, 0);
+                    cars.push(bot);
+                });
+
+                // Initial Blocks
+                for(let i=0; i<10; i++) spawnBlock();
+
+                // 6. Checkpoint
+                checkpoint = createCheckpoint();
+                scene.add(checkpoint);
+                spawnCheckpoint();
+
+                // Arrow
+                arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2, 8), new THREE.MeshBasicMaterial({ color: 0xffff00 }));
+                arrow.rotation.x = Math.PI/2;
+                scene.add(arrow);
+
+                // 7. Input
+                window.addEventListener('keydown', onKey);
+                window.addEventListener('keyup', onKey);
+            }
+
+            function createCarEntity(isPlayer, color) {
+                return {
+                    isPlayer: isPlayer,
+                    mesh: createCarMesh(color),
+                    velocity: new THREE.Vector3(0, 0, 0),
+                    speed: 0, angle: 0, 
+                    dead: false,
+                    onGround: true 
+                };
+            }
+
+            function createCarMesh(color) {
+                const mesh = new THREE.Group();
+                
+                // Materials
+                const paintMat = new THREE.MeshPhongMaterial({ color: color, shininess: 100, specular: 0x222222 });
+                const blackMat = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 50 });
+                const chromeMat = new THREE.MeshPhongMaterial({ color: 0xeeeeee, shininess: 300, specular: 0xffffff });
+                const glassMat = new THREE.MeshPhongMaterial({ color: 0x224466, shininess: 200, opacity: 0.6, transparent: true });
+                const lightYellow = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+                const lightRed = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const tireMat = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+
+                // --- CHASSIS ---
+                // Lower Body
+                const lowerGeo = new THREE.BoxGeometry(2.0, 0.5, 4.4);
+                const lower = new THREE.Mesh(lowerGeo, paintMat);
+                lower.position.y = 0.5;
+                lower.castShadow = true;
+                mesh.add(lower);
+
+                // Upper Body (Hood/Trunk level)
+                const midGeo = new THREE.BoxGeometry(1.9, 0.2, 4.2);
+                const mid = new THREE.Mesh(midGeo, paintMat);
+                mid.position.y = 0.85;
+                mesh.add(mid);
+
+                // Cabin (Roof)
+                const roofGeo = new THREE.BoxGeometry(1.6, 0.1, 1.5);
+                const roof = new THREE.Mesh(roofGeo, paintMat);
+                roof.position.set(0, 1.35, -0.3);
+                mesh.add(roof);
+
+                // Pillars (Black)
+                const pillarsGeo = new THREE.BoxGeometry(1.55, 0.5, 1.4);
+                const pillars = new THREE.Mesh(pillarsGeo, blackMat);
+                pillars.position.set(0, 1.1, -0.3);
+                mesh.add(pillars);
+
+                // Windshield (Sloped)
+                const windshieldGeo = new THREE.BoxGeometry(1.5, 0.4, 0.1);
+                const windshield = new THREE.Mesh(windshieldGeo, glassMat);
+                windshield.position.set(0, 1.15, 0.5);
+                windshield.rotation.x = -Math.PI / 5;
+                mesh.add(windshield);
+
+                // Rear Window (Sloped)
+                const rearWinGeo = new THREE.BoxGeometry(1.5, 0.4, 0.1);
+                const rearWin = new THREE.Mesh(rearWinGeo, glassMat);
+                rearWin.position.set(0, 1.15, -1.1);
+                rearWin.rotation.x = Math.PI / 5;
+                mesh.add(rearWin);
+
+                // Side Mirrors
+                const mirrorGeo = new THREE.BoxGeometry(0.3, 0.2, 0.15);
+                const mirrorL = new THREE.Mesh(mirrorGeo, paintMat); mirrorL.position.set(0.95, 1.0, 0.4); mesh.add(mirrorL);
+                const mirrorR = new THREE.Mesh(mirrorGeo, paintMat); mirrorR.position.set(-0.95, 1.0, 0.4); mesh.add(mirrorR);
+
+                // --- DETAILS ---
+                // Headlights
+                const hlGeo = new THREE.BoxGeometry(0.35, 0.15, 0.1);
+                const hlL = new THREE.Mesh(hlGeo, lightYellow); hlL.position.set(0.6, 0.6, 2.2); mesh.add(hlL);
+                const hlR = new THREE.Mesh(hlGeo, lightYellow); hlR.position.set(-0.6, 0.6, 2.2); mesh.add(hlR);
+
+                // Taillights
+                const tlGeo = new THREE.BoxGeometry(0.4, 0.15, 0.1);
+                const tlL = new THREE.Mesh(tlGeo, lightRed); tlL.position.set(0.6, 0.65, -2.11); mesh.add(tlL);
+                const tlR = new THREE.Mesh(tlGeo, lightRed); tlR.position.set(-0.6, 0.65, -2.11); mesh.add(tlR);
+
+                // Spoiler
+                const wingGeo = new THREE.BoxGeometry(2.2, 0.05, 0.6);
+                const wing = new THREE.Mesh(wingGeo, paintMat);
+                wing.position.set(0, 1.2, -2.0);
+                mesh.add(wing);
+                // Struts
+                const strutGeo = new THREE.BoxGeometry(0.1, 0.4, 0.2);
+                const strutL = new THREE.Mesh(strutGeo, blackMat); strutL.position.set(0.6, 1.0, -2.0); mesh.add(strutL);
+                const strutR = new THREE.Mesh(strutGeo, blackMat); strutR.position.set(-0.6, 1.0, -2.0); mesh.add(strutR);
+
+                // Exhaust Pipes
+                const exGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.2, 8);
+                const exL = new THREE.Mesh(exGeo, chromeMat); exL.rotation.x = Math.PI/2; exL.position.set(0.4, 0.3, -2.2); mesh.add(exL);
+                const exR = new THREE.Mesh(exGeo, chromeMat); exR.rotation.x = Math.PI/2; exR.position.set(-0.4, 0.3, -2.2); mesh.add(exR);
+
+                // --- WHEELS ---
+                const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 24);
+                const rimGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.52, 16);
+                
+                const wheelPositions = [
+                    [1.0, 0.45, 1.3], [-1.0, 0.45, 1.3], // Front
+                    [1.0, 0.45, -1.4], [-1.0, 0.45, -1.4] // Back
+                ];
+
+                wheelPositions.forEach(pos => {
+                    const wGroup = new THREE.Group();
+                    wGroup.position.set(...pos);
+                    
+                    // Tire
+                    const t = new THREE.Mesh(wheelGeo, tireMat);
+                    t.rotation.z = Math.PI/2;
+                    wGroup.add(t);
+
+                    // Rim
+                    const r = new THREE.Mesh(rimGeo, chromeMat);
+                    r.rotation.z = Math.PI/2;
+                    wGroup.add(r);
+
+                    mesh.add(wGroup);
+                });
+
+                // Shadow Plane (Simple fake shadow for when jumping)
+                const shadowGeo = new THREE.PlaneGeometry(2.4, 4.8);
+                const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+                const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+                shadow.rotation.x = -Math.PI/2;
+                shadow.position.y = 0.05; // Just below chassis
+                mesh.add(shadow);
+
+                scene.add(mesh);
+                return mesh;
+            }
+
+            function createCheckpoint() {
+                const group = new THREE.Group();
+                const geo = new THREE.TorusGeometry(5, 0.5, 8, 20, Math.PI);
+                const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                const arch = new THREE.Mesh(geo, mat);
+                arch.position.y = 0; group.add(arch);
+                const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 50, 8), new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3 }));
+                beam.position.y = 25; group.add(beam);
+                return group;
+            }
+
+            function spawnCheckpoint() {
+                const angle = Math.random() * Math.PI * 2;
+                const safeRadius = Math.max(arenaRadius - 10, 10);
+                const dist = Math.random() * safeRadius;
+                checkpoint.position.x = Math.sin(angle) * dist;
+                checkpoint.position.z = Math.cos(angle) * dist;
+                checkpoint.lookAt(0,0,0);
+            }
+
+            function spawnBlock() {
+                const geo = new THREE.BoxGeometry(3, 3, 3);
+                const mat = new THREE.MeshPhongMaterial({ color: 0xff8800 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.castShadow = true;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * (arenaRadius * 0.8);
+                mesh.position.set(Math.sin(angle)*dist, 1.5, Math.cos(angle)*dist);
+                
+                scene.add(mesh);
+                blocks.push({
+                    mesh: mesh,
+                    velocity: new THREE.Vector3(0,0,0),
+                    dead: false,
+                    onGround: true 
+                });
+            }
+
+            function onKey(e) {
+                const s = (e.type === 'keydown');
+                const k = e.key.toLowerCase();
+                if(k === 'w' || k === 'arrowup') input.w = s;
+                if(k === 's' || k === 'arrowdown') input.s = s;
+                if(k === 'a' || k === 'arrowleft') input.a = s;
+                if(k === 'd' || k === 'arrowright') input.d = s;
+                if(k === ' ' || k === 'space') input.space = s;
+            }
+
+            function update() {
+                if (!gameActive) return;
+
+                // --- SHRINK ZONE ---
+                if (arenaRadius > MIN_RADIUS) {
+                    arenaRadius -= SHRINK_RATE;
+                    dangerRing.scale.set(arenaRadius, arenaRadius, 1);
+                }
+
+                // --- SPAWN RANDOM BLOCKS ---
+                if (Math.random() < 0.01 && blocks.length < 20) spawnBlock();
+
+                // --- CAR LOGIC ---
+                cars.forEach(car => {
+                    if (car.dead) {
+                        car.mesh.position.y -= 0.5;
+                        return;
+                    }
+
+                    let accel = 0;
+                    if (car.isPlayer) {
+                        // Always accelerate forward
+                        accel = ACCEL;
+                        // Allow turning with A/D
+                        if (Math.abs(car.speed) > 0.1) {
+                            car.angle += (input.a ? 1 : input.d ? -1 : 0) * TURN_SPEED * (car.speed > 0 ? 1 : -1);
+                        }
+                        // Player Jump
+                        if (input.space && car.onGround) {
+                            car.velocity.y = JUMP_FORCE;
+                            car.onGround = false;
+                        }
+                    } else {
+                        // Bot Logic
+                        const dx = checkpoint.position.x - car.mesh.position.x;
+                        const dz = checkpoint.position.z - car.mesh.position.z;
+                        const angle = Math.atan2(dx, dz);
+                        let diff = angle - car.angle;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        if (Math.abs(diff) > 0.1) car.angle += Math.sign(diff) * TURN_SPEED;
+                        accel = (Math.abs(diff) > 0.5) ? ACCEL * 0.5 : ACCEL * 0.95;
+                        
+                        // Bot Jump (Random or Stuck)
+                        if (car.onGround && Math.random() < 0.005) {
+                            car.velocity.y = JUMP_FORCE;
+                            car.onGround = false;
+                        }
+                    }
+
+                    // Physics
+                    car.speed += accel;
+                    car.speed *= FRICTION;
+                    car.speed = Math.max(Math.min(car.speed, MAX_SPEED), -MAX_SPEED/2);
+                    
+                    // Apply Horizontal Velocity
+                    car.velocity.x = Math.sin(car.angle) * car.speed;
+                    car.velocity.z = Math.cos(car.angle) * car.speed;
+                    
+                    // Apply Gravity
+                    car.velocity.y -= GRAVITY;
+
+                    car.mesh.position.add(car.velocity);
+                    car.mesh.rotation.y = car.angle;
+
+                    // Ground & Boundary Logic
+                    const distFromCenter = Math.sqrt(car.mesh.position.x**2 + car.mesh.position.z**2);
+
+                    if (distFromCenter > arenaRadius) {
+                        // Out of bounds - instant death
+                        car.dead = true;
+                        if(car.isPlayer) setTimeout(() => callbacks.onGameOver("OUT OF BOUNDS"), 500);
+                    } else {
+                        // Solid Ground Check
+                        if (car.mesh.position.y <= 0.5) {
+                            car.mesh.position.y = 0.5;
+                            car.velocity.y = 0;
+                            car.onGround = true;
+                        } else {
+                            car.onGround = false;
+                        }
+                    }
+
+                    if (!car.dead && car.mesh.position.distanceTo(checkpoint.position) < 6) {
+                        if (car.isPlayer) callbacks.onScore(1);
+                        spawnCheckpoint();
+                    }
+                });
+
+                // --- BLOCK LOGIC ---
+                blocks.forEach((b, i) => {
+                    if (b.dead) {
+                        b.mesh.position.y -= 0.5;
+                        if (b.mesh.position.y < -50) {
+                            scene.remove(b.mesh);
+                            blocks.splice(i, 1);
+                        }
+                        return;
+                    }
+
+                    // Friction & Gravity
+                    b.velocity.x *= 0.95;
+                    b.velocity.z *= 0.95;
+                    b.velocity.y -= GRAVITY;
+                    b.mesh.position.add(b.velocity);
+
+                    // Ground/Boundary Logic
+                    const dist = Math.sqrt(b.mesh.position.x**2 + b.mesh.position.z**2);
+                    if (dist > arenaRadius) {
+                        b.onGround = false;
+                        if (b.mesh.position.y < -50) b.dead = true;
+                    } else {
+                        if (b.mesh.position.y <= 1.5) { // 1.5 is half height of 3x3 box
+                            b.mesh.position.y = 1.5;
+                            b.velocity.y = 0;
+                            b.onGround = true;
+                        }
+                    }
+                });
+
+                // --- COLLISIONS ---
+                // Car vs Car
+                for (let i = 0; i < cars.length; i++) {
+                    for (let j = i + 1; j < cars.length; j++) {
+                        const c1 = cars[i], c2 = cars[j];
+                        if (c1.dead || c2.dead) continue;
+                        const dist = c1.mesh.position.distanceTo(c2.mesh.position);
+                        if (dist < CAR_RADIUS * 2) {
+                            const angle = Math.atan2(c2.mesh.position.x - c1.mesh.position.x, c2.mesh.position.z - c1.mesh.position.z);
+                            const force = 0.5;
+                            const ax = Math.sin(angle) * force, az = Math.cos(angle) * force;
+                            c1.mesh.position.x -= ax; c1.mesh.position.z -= az;
+                            c2.mesh.position.x += ax; c2.mesh.position.z += az;
+                            c1.speed *= 0.8; c2.speed *= 0.8;
+                        }
+                    }
+                }
+
+                // Car vs Block
+                cars.forEach(car => {
+                    if (car.dead) return;
+                    blocks.forEach(block => {
+                        if (block.dead) return;
+                        const dist = car.mesh.position.distanceTo(block.mesh.position);
+                        if (dist < CAR_RADIUS + BLOCK_RADIUS) {
+                            const dx = block.mesh.position.x - car.mesh.position.x;
+                            const dz = block.mesh.position.z - car.mesh.position.z;
+                            const angle = Math.atan2(dx, dz);
+                            
+                            const force = Math.abs(car.speed) * 1.5; 
+                            block.velocity.x += Math.sin(angle) * force;
+                            block.velocity.z += Math.cos(angle) * force;
+                            car.speed *= 0.5;
+                            
+                            const pushOut = 0.2;
+                            car.mesh.position.x -= Math.sin(angle) * pushOut;
+                            car.mesh.position.z -= Math.cos(angle) * pushOut;
+                        }
+                    });
+                });
+
+                // --- CAMERA ---
+                if (!cars[0].dead) {
+                    const p = cars[0].mesh.position;
+                    const a = cars[0].angle;
+                    const camDist = 12, camHeight = 5;
+                    camera.position.x += (p.x - Math.sin(a) * camDist - camera.position.x) * 0.1;
+                    camera.position.z += (p.z - Math.cos(a) * camDist - camera.position.z) * 0.1;
+                    camera.position.y = p.y + camHeight;
+                    camera.lookAt(p.x, p.y + 2, p.z);
+                    arrow.position.set(p.x, p.y + 4, p.z);
+                    arrow.lookAt(checkpoint.position);
+                }
+            }
+
+            function draw() { renderer.render(scene, camera); }
+            function cleanup() { 
+                gameActive = false; 
+                window.removeEventListener('keydown', onKey); 
+                window.removeEventListener('keyup', onKey);
+                renderer.dispose(); 
+            }
+
+            return { init, update, draw, cleanup };
+        })());
+
+        // 11. PAC-MAN (Canvas) - Classic Arcade
+        App.registerGame('pacman', { title: 'Pac-Man', icon: 'ᗧ', usesScoreLimit: false }, (() => {
+            let ctx, w, h;
+            let map, player, ghosts;
+            let tileSize;
+            let callbacks;
+            let input = { nextDir: {x:0, y:0}, currentDir: {x:0, y:0} };
+            let frameCount = 0;
+            let mouthOpen = 0.2;
+            let mouthSpeed = 0.05;
+            let powerTimer = 0;
+
+            // 1 = Wall, 0 = Empty, 2 = Dot, 3 = Power
+            // 21x21 Grid
+            const levelMap = [
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+                [1,2,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,2,1],
+                [1,3,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,3,1],
+                [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+                [1,2,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,2,1],
+                [1,2,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,2,1],
+                [1,1,1,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,1,1,1],
+                [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+                [1,1,1,1,1,2,1,0,1,1,0,1,1,0,1,2,1,1,1,1,1],
+                [0,2,2,2,2,2,0,0,1,0,0,0,1,0,0,2,2,2,2,2,0], // Tunnel
+                [1,1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1,1],
+                [0,0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0,0],
+                [1,1,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,1,1],
+                [1,2,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,2,1],
+                [1,2,1,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,1,2,1],
+                [1,3,2,2,1,2,2,2,2,2,0,2,2,2,2,2,1,2,2,3,1], // Pac-Spawn at 0
+                [1,1,1,2,1,2,1,2,1,1,1,1,1,2,1,2,1,2,1,1,1],
+                [1,2,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,2,1],
+                [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            ];
+
+            function init(canvas, dom, config, cb) {
+                ctx = canvas.getContext('2d');
+                w = canvas.width = canvas.parentElement.clientWidth;
+                h = canvas.height = canvas.parentElement.clientHeight;
+                callbacks = cb;
+                
+                // Calculate tile size to fit screen
+                const rows = levelMap.length;
+                const cols = levelMap[0].length;
+                tileSize = Math.min(w / cols, h / rows);
+                
+                // Clone Map
+                map = JSON.parse(JSON.stringify(levelMap));
+                
+                // Entities
+                player = { x: 10, y: 16, dir: {x:0,y:0}, next: {x:0,y:0}, speed: 0.15, angle: 0 };
+                
+                ghosts = [
+                    { x: 9, y: 8, color: 'red', dir: {x:0,y:0}, speed: 0.1, state: 'scatter' },
+                    { x: 10, y: 8, color: 'pink', dir: {x:0,y:0}, speed: 0.1, state: 'scatter' },
+                    { x: 11, y: 8, color: 'cyan', dir: {x:0,y:0}, speed: 0.1, state: 'scatter' },
+                    { x: 10, y: 9, color: 'orange', dir: {x:0,y:0}, speed: 0.1, state: 'scatter' }
+                ];
+
+                input = { nextDir: {x:0, y:0} };
+                
+                window.addEventListener('keydown', onKey);
+            }
+
+            function onKey(e) {
+                const k = e.key.toLowerCase();
+                if(k === 'arrowup' || k === 'w') input.nextDir = {x:0, y:-1};
+                if(k === 'arrowdown' || k === 's') input.nextDir = {x:0, y:1};
+                if(k === 'arrowleft' || k === 'a') input.nextDir = {x:-1, y:0};
+                if(k === 'arrowright' || k === 'd') input.nextDir = {x:1, y:0};
+            }
+
+            function isWall(x, y) {
+                // Bounds check
+                if (x < 0 || x >= 21 || y < 0 || y >= 20) return false; // Tunnel
+                return map[Math.floor(y)][Math.floor(x)] === 1;
+            }
+
+            function update() {
+                frameCount++;
+                
+                // --- Player Movement ---
+                // Try to turn
+                const px = Math.round(player.x);
+                const py = Math.round(player.y);
+                const centerDist = Math.abs(player.x - px) + Math.abs(player.y - py);
+                
+                // Can turn if near center of tile
+                if (centerDist < 0.1) {
+                    if (!isWall(px + input.nextDir.x, py + input.nextDir.y)) {
+                        player.dir = input.nextDir;
+                        player.x = px; player.y = py; // Snap
+                    }
+                    
+                    // Stop if wall ahead
+                    if (isWall(px + player.dir.x, py + player.dir.y)) {
+                        player.dir = {x:0, y:0};
+                        player.x = px; player.y = py;
+                    }
+                }
+
+                player.x += player.dir.x * player.speed;
+                player.y += player.dir.y * player.speed;
+
+                // Screen Wrap
+                if(player.x < -1) player.x = 20;
+                if(player.x > 21) player.x = 0;
+
+                // Rotation for drawing
+                if (player.dir.x === 1) player.angle = 0;
+                if (player.dir.x === -1) player.angle = Math.PI;
+                if (player.dir.y === -1) player.angle = -Math.PI/2;
+                if (player.dir.y === 1) player.angle = Math.PI/2;
+
+                // Eating
+                const cx = Math.round(player.x);
+                const cy = Math.round(player.y);
+                if (cx >= 0 && cx < 21 && cy >= 0 && cy < 20) {
+                    if (map[cy][cx] === 2) {
+                        map[cy][cx] = 0;
+                        callbacks.onScore(1);
+                    } else if (map[cy][cx] === 3) {
+                        map[cy][cx] = 0;
+                        callbacks.onScore(5);
+                        activatePower();
+                    }
+                }
+
+                // --- Ghost AI ---
+                if (powerTimer > 0) powerTimer--;
+
+                ghosts.forEach(g => {
+                    // Move Ghost
+                    const gx = Math.round(g.x);
+                    const gy = Math.round(g.y);
+                    const gDist = Math.abs(g.x - gx) + Math.abs(g.y - gy);
+
+                    if (gDist < 0.1) {
+                        // Choose direction
+                        const dirs = [{x:0,y:-1}, {x:0,y:1}, {x:-1,y:0}, {x:1,y:0}];
+                        // Filter out walls and reverse direction (unless stuck)
+                        const valid = dirs.filter(d => !isWall(gx + d.x, gy + d.y) && !(d.x === -g.dir.x && d.y === -g.dir.y));
+                        
+                        // If valid is empty (dead end), allow reverse
+                        const options = valid.length > 0 ? valid : dirs.filter(d => !isWall(gx + d.x, gy + d.y));
+                        
+                        if (powerTimer > 0) {
+                            // Flee: Random valid
+                            g.dir = options[Math.floor(Math.random() * options.length)];
+                        } else {
+                            // Chase: Pick dir closest to player (Manhattan dist)
+                            g.dir = options.sort((a,b) => {
+                                const da = Math.abs((gx+a.x) - player.x) + Math.abs((gy+a.y) - player.y);
+                                const db = Math.abs((gx+b.x) - player.x) + Math.abs((gy+b.y) - player.y);
+                                return da - db;
+                            })[0];
+                        }
+                    }
+                    
+                    // Apply Speed (Slower if frightened)
+                    const spd = (powerTimer > 0) ? g.speed * 0.6 : g.speed;
+                    g.x += g.dir.x * spd;
+                    g.y += g.dir.y * spd;
+
+                    // Collision with Player
+                    const dist = Math.sqrt((g.x - player.x)**2 + (g.y - player.y)**2);
+                    if (dist < 0.5) {
+                        if (powerTimer > 0) {
+                            // Eat Ghost -> Send Home
+                            g.x = 10; g.y = 9;
+                            callbacks.onScore(10);
+                        } else {
+                            // Die
+                            callbacks.onGameOver("CHOMPED!");
+                        }
+                    }
+                });
+
+                // Win Check (No dots left)
+                if (!map.flat().includes(2) && !map.flat().includes(3)) {
+                    callbacks.onGameOver("CLEARED!");
+                }
+            }
+
+            function activatePower() {
+                powerTimer = 400; // Frames
+            }
+
+            function draw() {
+                ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+                
+                const offX = (w - (21 * tileSize)) / 2;
+                const offY = (h - (20 * tileSize)) / 2;
+
+                // Map
+                for(let y=0; y<20; y++) {
+                    for(let x=0; x<21; x++) {
+                        const t = map[y][x];
+                        const tx = offX + x * tileSize;
+                        const ty = offY + y * tileSize;
+                        
+                        if (t === 1) {
+                            // Wall
+                            ctx.fillStyle = '#1111bb';
+                            ctx.fillRect(tx, ty, tileSize, tileSize);
+                            // Inner detail
+                            ctx.fillStyle = '#000';
+                            ctx.fillRect(tx+2, ty+2, tileSize-4, tileSize-4);
+                            ctx.strokeStyle = '#1111bb';
+                            ctx.strokeRect(tx+4, ty+4, tileSize-8, tileSize-8);
+                        } else if (t === 2) {
+                            // Dot
+                            ctx.fillStyle = '#ffb8ae';
+                            ctx.fillRect(tx + tileSize/2 - 2, ty + tileSize/2 - 2, 4, 4);
+                        } else if (t === 3) {
+                            // Power
+                            if (Math.floor(frameCount / 10) % 2 === 0) {
+                                ctx.fillStyle = '#ffb8ae';
+                                ctx.beginPath(); ctx.arc(tx + tileSize/2, ty + tileSize/2, 6, 0, Math.PI*2); ctx.fill();
+                            }
+                        }
+                    }
+                }
+
+                // Player
+                const px = offX + player.x * tileSize + tileSize/2;
+                const py = offY + player.y * tileSize + tileSize/2;
+                const mouth = Math.abs(Math.sin(frameCount * mouthSpeed)) * mouthOpen;
+                
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(player.angle);
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(0, 0, tileSize/2 - 2, mouth, Math.PI*2 - mouth);
+                ctx.lineTo(0, 0);
+                ctx.fill();
+                ctx.restore();
+
+                // Ghosts
+                ghosts.forEach(g => {
+                    const gx = offX + g.x * tileSize + tileSize/2;
+                    const gy = offY + g.y * tileSize + tileSize/2;
+                    const isScared = powerTimer > 0 && (powerTimer > 120 || Math.floor(frameCount / 10) % 2 === 0);
+                    
+                    ctx.fillStyle = isScared ? '#0000ff' : g.color;
+                    
+                    // Body (Circle top, square bottom)
+                    ctx.beginPath();
+                    ctx.arc(gx, gy - 2, tileSize/2 - 2, Math.PI, 0);
+                    ctx.lineTo(gx + tileSize/2 - 2, gy + tileSize/2 - 2);
+                    // Wavy bottom
+                    ctx.lineTo(gx + tileSize/4, gy + tileSize/2 - 5);
+                    ctx.lineTo(gx, gy + tileSize/2 - 2);
+                    ctx.lineTo(gx - tileSize/4, gy + tileSize/2 - 5);
+                    ctx.lineTo(gx - tileSize/2 + 2, gy + tileSize/2 - 2);
+                    ctx.fill();
+
+                    // Eyes
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath(); ctx.arc(gx - 4, gy - 4, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(gx + 4, gy - 4, 3, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath(); ctx.arc(gx - 4 + g.dir.x*2, gy - 4 + g.dir.y*2, 1.5, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(gx + 4 + g.dir.x*2, gy - 4 + g.dir.y*2, 1.5, 0, Math.PI*2); ctx.fill();
+                });
+            }
+
+            function cleanup() { window.removeEventListener('keydown', onKey); }
+            return { init, update, draw, cleanup };
+        })());
+
+        // 12. CIRCUIT RACER (Three.js) - 3D Racing with Lap Timing
+        App.registerGame('circuitracer', { title: 'Circuit Racer', icon: '🏁', usesScoreLimit: false }, (() => {
+            let scene, camera, renderer, playerCar, opponentCars, track, gameActive = false;
+            let currentLapTime = 0, bestLapTime = Infinity, lapStarted = false, lapCount = 0;
+            let callbacks, keys = {}, speed = 0, hudElement;
+            const BASE_SPEED = 0.5, MAX_SPEED = 3, TRACK_RADIUS = 150;
+            const INNER_BARRIER = TRACK_RADIUS - 14; // Inner wall at 136
+            const OUTER_BARRIER = TRACK_RADIUS + 14; // Outer wall at 164
+
+            function formatTime(ms) {
+                const totalSeconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                const millis = Math.floor((ms % 1000) / 10);
+                return `${minutes}:${seconds.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
+            }
+
+            function init(canvas, dom, config, cb) {
+                callbacks = cb;
+                gameActive = true;
+
+                // Create HUD overlay
+                hudElement = document.createElement('div');
+                hudElement.style.cssText = 'position: absolute; top: 100px; right: 20px; color: #00ff00; font-family: monospace; font-size: 14px; text-shadow: 0 0 5px #00ff00; z-index: 100; line-height: 1.6;';
+                dom.appendChild(hudElement);
+
+                // Setup scene
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x87CEEB);
+                scene.fog = new THREE.Fog(0x87CEEB, 150, 400);
+
+                const w = canvas.parentElement.clientWidth;
+                const h = canvas.parentElement.clientHeight;
+                camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
+                camera.position.set(0, 15, -30);
+
+                renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+                renderer.setSize(w, h);
+                renderer.shadowMap.enabled = true;
+
+                // Lighting
+                const light = new THREE.DirectionalLight(0xffffff, 1);
+                light.position.set(50, 50, 50);
+                light.castShadow = true;
+                light.shadow.mapSize.width = 2048;
+                light.shadow.mapSize.height = 2048;
+                scene.add(light);
+                scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+                // Ground
+                const groundGeo = new THREE.PlaneGeometry(500, 500);
+                const groundMat = new THREE.MeshPhongMaterial({ color: 0x2d5016 });
+                const ground = new THREE.Mesh(groundGeo, groundMat);
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                scene.add(ground);
+
+                // Track
+                createTrack();
+
+                // Player car
+                playerCar = createCar(0xdd0000);
+                playerCar.position.set(0, 1, -TRACK_RADIUS + 5);
+                playerCar.userData = { speed: 0, angle: 0, lapTime: 0, lastLap: Infinity, crossed: false };
+                scene.add(playerCar);
+
+                // Opponent cars
+                opponentCars = [];
+                [0x0000dd, 0xdddd00].forEach((color, i) => {
+                    const bot = createCar(color);
+                    bot.position.set((i - 0.5) * 5, 1, -TRACK_RADIUS + 5 + (i + 1) * 3);
+                    bot.userData = { speed: 0.3, angle: 0, lapTime: 0, lastLap: Infinity, progress: 0, crossed: false };
+                    opponentCars.push(bot);
+                    scene.add(bot);
+                });
+
+                window.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+                window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+            }
+
+            function createTrack() {
+                // Racing surface (asphalt) - much bigger
+                const trackGeo = new THREE.TorusGeometry(TRACK_RADIUS, 14, 64, 200);
+                const trackMat = new THREE.MeshPhongMaterial({ color: 0x2a2a2a });
+                const track = new THREE.Mesh(trackGeo, trackMat);
+                track.rotation.x = Math.PI / 2;
+                track.receiveShadow = true;
+                track.position.y = 0.01;
+                scene.add(track);
+
+                // Inner barrier (wall) - thicker and taller
+                const innerBarrierGeo = new THREE.TorusGeometry(INNER_BARRIER, 2.5, 64, 200);
+                const barrierMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+                const innerBarrier = new THREE.Mesh(innerBarrierGeo, barrierMat);
+                innerBarrier.rotation.x = Math.PI / 2;
+                innerBarrier.position.y = 2;
+                innerBarrier.castShadow = true;
+                scene.add(innerBarrier);
+
+                // Outer barrier (wall) - thicker and taller
+                const outerBarrierGeo = new THREE.TorusGeometry(OUTER_BARRIER, 2.5, 64, 200);
+                const outerBarrier = new THREE.Mesh(outerBarrierGeo, barrierMat);
+                outerBarrier.rotation.x = Math.PI / 2;
+                outerBarrier.position.y = 2;
+                outerBarrier.castShadow = true;
+                scene.add(outerBarrier);
+
+                // Lane markings (dashed lines)
+                for (let i = 0; i < 32; i++) {
+                    const angle = (i / 32) * Math.PI * 2;
+                    const lineGeo = new THREE.BoxGeometry(1, 0.05, 3);
+                    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                    const line = new THREE.Mesh(lineGeo, lineMat);
+                    line.position.set(
+                        Math.sin(angle) * TRACK_RADIUS,
+                        0.1,
+                        Math.cos(angle) * TRACK_RADIUS
+                    );
+                    line.rotation.z = angle;
+                    scene.add(line);
+                }
+
+                // Start/Finish line (white stripes)
+                for (let i = 0; i < 6; i++) {
+                    const stripeGeo = new THREE.BoxGeometry(2, 0.1, 1);
+                    const stripeMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xffffff : 0x000000 });
+                    const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                    stripe.position.set(-6 + i * 2, 0.15, -TRACK_RADIUS);
+                    scene.add(stripe);
+                }
+
+                // Pit lane markers
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i / 8) * Math.PI * 2;
+                    const pitGeo = new THREE.CylinderGeometry(1, 1, 0.2, 16);
+                    const pitMat = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+                    const pit = new THREE.Mesh(pitGeo, pitMat);
+                    pit.position.set(
+                        Math.sin(angle) * (TRACK_RADIUS - 20),
+                        0.3,
+                        Math.cos(angle) * (TRACK_RADIUS - 20)
+                    );
+                    scene.add(pit);
+                }
+            }
+
+            function createCar(color) {
+                const group = new THREE.Group();
+
+                // Main body - engine compartment
+                const engineGeo = new THREE.BoxGeometry(3.5, 2.5, 3);
+                const bodyMat = new THREE.MeshPhongMaterial({ color });
+                const engine = new THREE.Mesh(engineGeo, bodyMat);
+                engine.position.z = 2;
+                engine.position.y = 0;
+                engine.castShadow = true;
+                engine.receiveShadow = true;
+                group.add(engine);
+
+                // Cabin (passenger compartment)
+                const cabinGeo = new THREE.BoxGeometry(3.2, 2.3, 3.5);
+                const cabin = new THREE.Mesh(cabinGeo, bodyMat);
+                cabin.position.z = -1;
+                cabin.position.y = 0.3;
+                cabin.castShadow = true;
+                cabin.receiveShadow = true;
+                group.add(cabin);
+
+                // Windshield (front window)
+                const windshieldGeo = new THREE.BoxGeometry(3, 1.2, 0.3);
+                const glassMat = new THREE.MeshPhongMaterial({ color: 0x4488ff, transparent: true, opacity: 0.6 });
+                const windshield = new THREE.Mesh(windshieldGeo, glassMat);
+                windshield.position.z = 2.8;
+                windshield.position.y = 1.2;
+                windshield.rotation.x = 0.3;
+                windshield.castShadow = true;
+                group.add(windshield);
+
+                // Rear window
+                const rearGeo = new THREE.BoxGeometry(3, 0.8, 0.3);
+                const rearWindow = new THREE.Mesh(rearGeo, glassMat);
+                rearWindow.position.z = -2.5;
+                rearWindow.position.y = 1;
+                rearWindow.rotation.x = -0.2;
+                group.add(rearWindow);
+
+                // Bumper (front)
+                const frontBumperGeo = new THREE.BoxGeometry(3.8, 0.8, 0.6);
+                const bumperMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+                const frontBumper = new THREE.Mesh(frontBumperGeo, bumperMat);
+                frontBumper.position.z = 3.7;
+                frontBumper.position.y = -0.5;
+                frontBumper.castShadow = true;
+                group.add(frontBumper);
+
+                // Bumper (rear)
+                const rearBumperGeo = new THREE.BoxGeometry(3.8, 0.8, 0.6);
+                const rearBumper = new THREE.Mesh(rearBumperGeo, bumperMat);
+                rearBumper.position.z = -3.5;
+                rearBumper.position.y = -0.5;
+                rearBumper.castShadow = true;
+                group.add(rearBumper);
+
+                // Roof spoiler
+                const spoilerGeo = new THREE.BoxGeometry(3, 0.5, 0.4);
+                const spoilerMat = new THREE.MeshPhongMaterial({ color: 0x0a0a0a });
+                const spoiler = new THREE.Mesh(spoilerGeo, spoilerMat);
+                spoiler.position.z = -2.2;
+                spoiler.position.y = 1.8;
+                spoiler.castShadow = true;
+                group.add(spoiler);
+
+                // Wheels
+                const wheelGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.8, 16);
+                const wheelMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+                const rimGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.85, 8);
+                const rimMat = new THREE.MeshPhongMaterial({ color: 0xcccccc });
+
+                const wheelPositions = [
+                    [-1.8, -1.1, 2.5],  // Front left
+                    [1.8, -1.1, 2.5],   // Front right
+                    [-1.8, -1.1, -2.2], // Rear left
+                    [1.8, -1.1, -2.2]   // Rear right
+                ];
+
+                wheelPositions.forEach(pos => {
+                    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+                    wheel.rotation.z = Math.PI / 2;
+                    wheel.position.set(...pos);
+                    wheel.castShadow = true;
+                    group.add(wheel);
+
+                    const rim = new THREE.Mesh(rimGeo, rimMat);
+                    rim.rotation.z = Math.PI / 2;
+                    rim.position.set(...pos);
+                    rim.position.z -= 0.1;
+                    group.add(rim);
+                });
+
+                return group;
+            }
+
+            function update() {
+                if (!gameActive) return;
+
+                // Player controls
+                if (keys['arrowup']) speed = Math.min(speed + 0.1, MAX_SPEED);
+                if (keys['arrowdown']) speed = Math.max(speed - 0.1, -MAX_SPEED / 2);
+                speed *= 0.95;
+
+                if (keys['arrowleft']) playerCar.userData.angle += 0.15;
+                if (keys['arrowright']) playerCar.userData.angle -= 0.15;
+
+                // Update player car
+                updateCar(playerCar, speed);
+
+                // Update opponent cars (simple AI - follow track)
+                opponentCars.forEach(car => {
+                    const angle = getAngleOnTrack(car.position);
+                    const targetAngle = angle + Math.PI / 2;
+                    let diff = targetAngle - car.userData.angle;
+                    while (diff > Math.PI) diff -= Math.PI * 2;
+                    while (diff < -Math.PI) diff += Math.PI * 2;
+                    car.userData.angle += diff * 0.05;
+
+                    if (getDistanceFromTrack(car.position) > 5) car.userData.speed *= 0.9;
+                    car.userData.speed = Math.min(car.userData.speed + 0.02, 0.4);
+                    updateCar(car, car.userData.speed);
+                });
+
+                // Check lap
+                updateLapTime();
+                checkLapCompletion(playerCar);
+
+                // Camera follow - F1 style third person
+                const camDist = 12;
+                const camHeight = 6;
+                const targetCamX = playerCar.position.x - Math.sin(playerCar.userData.angle) * camDist;
+                const targetCamZ = playerCar.position.z - Math.cos(playerCar.userData.angle) * camDist;
+
+                camera.position.lerp(new THREE.Vector3(
+                    targetCamX,
+                    playerCar.position.y + camHeight,
+                    targetCamZ
+                ), 0.15);
+                camera.lookAt(playerCar.position.x, playerCar.position.y + 2, playerCar.position.z);
+            }
+
+            function updateCar(car, spd) {
+                // Store previous position for collision detection
+                const prevX = car.position.x;
+                const prevZ = car.position.z;
+
+                // Move car
+                car.position.x += Math.sin(car.userData.angle) * spd;
+                car.position.z += Math.cos(car.userData.angle) * spd;
+                car.rotation.y = car.userData.angle;
+
+                // Collision detection - car collision radius is 2.5
+                const CAR_RADIUS = 2.5;
+                const dist = Math.sqrt(car.position.x ** 2 + car.position.z ** 2);
+
+                // Check inner barrier collision
+                if (dist < INNER_BARRIER - CAR_RADIUS) {
+                    // Hit inner wall - push car back out
+                    const angle = Math.atan2(car.position.x, car.position.z);
+                    const pushDist = INNER_BARRIER - CAR_RADIUS + 1;
+                    car.position.x = Math.sin(angle) * pushDist;
+                    car.position.z = Math.cos(angle) * pushDist;
+                    car.userData.speed *= 0.5; // Lose speed on collision
+                }
+
+                // Check outer barrier collision
+                if (dist > OUTER_BARRIER + CAR_RADIUS) {
+                    // Hit outer wall - push car back in
+                    const angle = Math.atan2(car.position.x, car.position.z);
+                    const pushDist = OUTER_BARRIER + CAR_RADIUS - 1;
+                    car.position.x = Math.sin(angle) * pushDist;
+                    car.position.z = Math.cos(angle) * pushDist;
+                    car.userData.speed *= 0.5; // Lose speed on collision
+                }
+            }
+
+            function getAngleOnTrack(pos) {
+                return Math.atan2(pos.x, pos.z);
+            }
+
+            function getDistanceFromTrack(pos) {
+                const dist = Math.sqrt(pos.x ** 2 + pos.z ** 2);
+                return Math.abs(dist - TRACK_RADIUS);
+            }
+
+            function updateLapTime() {
+                if (lapStarted) {
+                    currentLapTime += 0.016; // ~60fps
+                }
+            }
+
+            function checkLapCompletion(car) {
+                const z = car.position.z;
+                const crossedLine = z > -TRACK_RADIUS && z < -TRACK_RADIUS + 5;
+
+                if (crossedLine && !car.userData.crossed) {
+                    if (lapStarted) {
+                        car.userData.lastLap = currentLapTime;
+                        if (currentLapTime < bestLapTime) {
+                            bestLapTime = currentLapTime;
+                            callbacks.onScore(Math.round(100 / currentLapTime)); // Score based on time
+                        }
+                        lapCount++;
+                    }
+                    currentLapTime = 0;
+                    lapStarted = true;
+                    car.userData.crossed = true;
+                } else if (!crossedLine) {
+                    car.userData.crossed = false;
+                }
+            }
+
+            function draw() {
+                renderer.render(scene, camera);
+
+                // Update HUD display
+                const bestLapDisplay = bestLapTime === Infinity ? '--:--.-' : formatTime(bestLapTime);
+                hudElement.innerHTML = `
+                    LAP: ${lapCount}<br>
+                    TIME: ${formatTime(currentLapTime)}<br>
+                    BEST: ${bestLapDisplay}
+                `;
+            }
+
+            function cleanup() {
+                gameActive = false;
+                renderer.dispose();
+                window.removeEventListener('keydown', () => {});
+                window.removeEventListener('keyup', () => {});
+            }
+
+            return { init, update, draw, cleanup };
+        })());
+
+        // Init
+        window.onload = App.showLobby;
+
+    </script>
+</body>
+</html>
