@@ -2454,33 +2454,41 @@
 
                     // Player 1 - Left side
                     const p1Car = cars[0];
-                    if (p1Car && !p1Car.dead) {
+                    if (p1Car) {
                         camera.aspect = (w / 2) / h;
                         camera.updateProjectionMatrix();
                         renderer.setViewport(0, 0, w / 2, h);
                         renderer.setScissor(0, 0, w / 2, h);
                         renderer.setScissorTest(true);
-                        camera.position.copy(p1Car.mesh.position);
-                        camera.position.x -= Math.sin(p1Car.angle) * 8;
-                        camera.position.z -= Math.cos(p1Car.angle) * 8;
-                        camera.position.y = 6;
-                        camera.lookAt(p1Car.mesh.position.x, p1Car.mesh.position.y + 2, p1Car.mesh.position.z);
+
+                        // Update camera only if alive, otherwise show last position
+                        if (!p1Car.dead) {
+                            camera.position.copy(p1Car.mesh.position);
+                            camera.position.x -= Math.sin(p1Car.angle) * 8;
+                            camera.position.z -= Math.cos(p1Car.angle) * 8;
+                            camera.position.y = 6;
+                            camera.lookAt(p1Car.mesh.position.x, p1Car.mesh.position.y + 2, p1Car.mesh.position.z);
+                        }
                         renderer.render(scene, camera);
                     }
 
                     // Player 2 - Right side
                     const p2Car = cars[1];
-                    if (p2Car && !p2Car.dead) {
+                    if (p2Car) {
                         camera.aspect = (w / 2) / h;
                         camera.updateProjectionMatrix();
                         renderer.setViewport(w / 2, 0, w / 2, h);
                         renderer.setScissor(w / 2, 0, w / 2, h);
                         renderer.setScissorTest(true);
-                        camera.position.copy(p2Car.mesh.position);
-                        camera.position.x -= Math.sin(p2Car.angle) * 8;
-                        camera.position.z -= Math.cos(p2Car.angle) * 8;
-                        camera.position.y = 6;
-                        camera.lookAt(p2Car.mesh.position.x, p2Car.mesh.position.y + 2, p2Car.mesh.position.z);
+
+                        // Update camera only if alive, otherwise show last position
+                        if (!p2Car.dead) {
+                            camera.position.copy(p2Car.mesh.position);
+                            camera.position.x -= Math.sin(p2Car.angle) * 8;
+                            camera.position.z -= Math.cos(p2Car.angle) * 8;
+                            camera.position.y = 6;
+                            camera.lookAt(p2Car.mesh.position.x, p2Car.mesh.position.y + 2, p2Car.mesh.position.z);
+                        }
                         renderer.render(scene, camera);
                     }
 
