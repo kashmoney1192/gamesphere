@@ -369,9 +369,9 @@
                 <div class="setup-group" id="setup-2p-group" style="display: none;">
                     <label>
                         <input type="checkbox" id="setup-2p" />
-                        Two Player Mode (Turbo Rivals only)
+                        Two Player Mode (Split Screen)
                     </label>
-                    <small style="display: block; margin-top: 5px; color: #aaa;">P1: W/A/D + SPACE | P2: Arrow Keys + ENTER</small>
+                    <small style="display: block; margin-top: 5px; color: #aaa;">P1: W(jump)/A/D | P2: ↑(jump)/←/→</small>
                 </div>
 
                 <div style="display:flex; gap:10px; justify-content: center;">
@@ -2219,22 +2219,23 @@
                 const k = e.key.toLowerCase();
 
                 if (twoPlayerMode) {
-                    // Player 1 controls: W, A, D, SPACE
-                    if(k === 'w') input.p1.w = s;
+                    // Player 1 controls: W/A/D for movement, W/SPACE for jump
+                    if(k === 'w') {
+                        input.p1.w = s;
+                        input.p1.space = s; // W also triggers jump
+                    }
                     if(k === 'a') input.p1.a = s;
                     if(k === 'd') input.p1.d = s;
                     if(k === ' ') input.p1.space = s;
 
-                    // Player 2 controls: ARROW KEYS
-                    if(k === 'arrowup') input.p2.arrowup = s;
+                    // Player 2 controls: ARROW KEYS for movement, UP/ENTER for jump
+                    if(k === 'arrowup') {
+                        input.p2.arrowup = s;
+                        input.p2.space2 = s; // Arrow Up also triggers jump
+                    }
                     if(k === 'arrowleft') input.p2.arrowleft = s;
                     if(k === 'arrowright') input.p2.arrowright = s;
-                    // For P2 jump, use SHIFT + UP or CTRL + UP
-                    if((k === 'shift' || k === 'control') && e.type === 'keydown') {
-                        // Check if arrow up is pressed for jump
-                        if (input.p2.arrowup) input.p2.space2 = s;
-                    }
-                    if(k === 'enter') input.p2.space2 = s; // Also allow Enter for P2 jump
+                    if(k === 'enter') input.p2.space2 = s; // Enter also triggers jump
                 } else {
                     // Single player mode - original controls
                     if(k === 'w' || k === 'arrowup') input.p1.w = s;
@@ -2442,7 +2443,52 @@
                 }
             }
 
-            function draw() { renderer.render(scene, camera); }
+            function draw() {
+                if (twoPlayerMode) {
+                    // Split screen - left half for P1, right half for P2
+                    const w = renderer.domElement.clientWidth;
+                    const h = renderer.domElement.clientHeight;
+
+                    // Player 1 - Left side
+                    const p1Car = cars[0];
+                    if (p1Car && !p1Car.dead) {
+                        camera.aspect = (w / 2) / h;
+                        camera.updateProjectionMatrix();
+                        renderer.setViewport(0, 0, w / 2, h);
+                        renderer.setScissor(0, 0, w / 2, h);
+                        renderer.setScissorTest(true);
+                        camera.position.copy(p1Car.mesh.position);
+                        camera.position.x -= Math.sin(p1Car.angle) * 8;
+                        camera.position.z -= Math.cos(p1Car.angle) * 8;
+                        camera.position.y = 6;
+                        camera.lookAt(p1Car.mesh.position.x, p1Car.mesh.position.y + 2, p1Car.mesh.position.z);
+                        renderer.render(scene, camera);
+                    }
+
+                    // Player 2 - Right side
+                    const p2Car = cars[1];
+                    if (p2Car && !p2Car.dead) {
+                        camera.aspect = (w / 2) / h;
+                        camera.updateProjectionMatrix();
+                        renderer.setViewport(w / 2, 0, w / 2, h);
+                        renderer.setScissor(w / 2, 0, w / 2, h);
+                        renderer.setScissorTest(true);
+                        camera.position.copy(p2Car.mesh.position);
+                        camera.position.x -= Math.sin(p2Car.angle) * 8;
+                        camera.position.z -= Math.cos(p2Car.angle) * 8;
+                        camera.position.y = 6;
+                        camera.lookAt(p2Car.mesh.position.x, p2Car.mesh.position.y + 2, p2Car.mesh.position.z);
+                        renderer.render(scene, camera);
+                    }
+
+                    // Reset viewport
+                    renderer.setScissorTest(false);
+                    renderer.setViewport(0, 0, w, h);
+                } else {
+                    // Single player - full screen
+                    renderer.render(scene, camera);
+                }
+            }
             function cleanup() { 
                 gameActive = false; 
                 window.removeEventListener('keydown', onKey); 
