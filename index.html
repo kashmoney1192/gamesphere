@@ -366,6 +366,14 @@
                     </select>
                 </div>
 
+                <div class="setup-group" id="setup-2p-group" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="setup-2p" />
+                        Two Player Mode (Turbo Rivals only)
+                    </label>
+                    <small style="display: block; margin-top: 5px; color: #aaa;">P1: W/A/D + SPACE | P2: Arrow Keys + ENTER</small>
+                </div>
+
                 <div style="display:flex; gap:10px; justify-content: center;">
                     <button class="btn btn-secondary" onclick="App.showLobby()">BACK</button>
                     <button class="btn" onclick="App.launchGame()">PLAY</button>
@@ -424,7 +432,9 @@
                 game: document.getElementById('view-game'),
                 grid: document.getElementById('lobby-grid'),
                 setupTitle: document.getElementById('setup-title'),
-                setupScoreGroup: document.getElementById('setup-score-group'), // NEW
+                setupScoreGroup: document.getElementById('setup-score-group'),
+                setup2pGroup: document.getElementById('setup-2p-group'),
+                setup2p: document.getElementById('setup-2p'),
                 setupScore: document.getElementById('setup-score'),
                 setupTime: document.getElementById('setup-time'),
                 hudScore: document.getElementById('hud-score'),
@@ -456,13 +466,22 @@
                 state.gameId = id;
                 const game = games[id];
                 els.setupTitle.innerText = game.meta.title;
-                
+
                 // Logic to hide Score Limit for games that don't support it
                 if (game.meta.usesScoreLimit) {
                     els.setupScoreGroup.style.display = 'block';
                 } else {
                     els.setupScoreGroup.style.display = 'none';
                     els.setupScore.value = "0"; // Default to endless
+                }
+
+                // Show 2P option only for Turbo Rivals
+                if (id === 'racer') {
+                    els.setup2pGroup.style.display = 'block';
+                    els.setup2p.checked = false; // Reset checkbox
+                } else {
+                    els.setup2pGroup.style.display = 'none';
+                    els.setup2p.checked = false;
                 }
 
                 switchView('setup');
@@ -499,7 +518,8 @@
                     scoreLimit: scoreLimitVal,
                     timeLimit: parseInt(els.setupTime.value),
                     difficulty: difficultyStr,
-                    diffMult: difficultyMultipliers[difficultyStr] || difficultyMultipliers['medium']
+                    diffMult: difficultyMultipliers[difficultyStr] || difficultyMultipliers['medium'],
+                    twoPlayer: els.setup2p.checked
                 };
                 state.gameConfig = config;
                 state.score = 0;
@@ -1895,12 +1915,16 @@
         App.registerGame('racer', { title: 'Turbo Rivals', icon: '🏎️', usesScoreLimit: false }, (() => {
             let scene, camera, renderer;
             let cars = [];
-            let blocks = []; 
+            let blocks = [];
             let checkpoint, arrow, dangerRing;
             let arenaRadius = 150;
             let gameActive = false;
             let callbacks;
-            let input = { w:false, s:false, a:false, d:false, space:false };
+            let twoPlayerMode = false;
+            let input = {
+                p1: { w:false, a:false, d:false, space:false },
+                p2: { arrowup:false, arrowleft:false, arrowright:false, space2:false }
+            };
 
             // Physics Constants
             const ACCEL = 0.05;
@@ -1920,7 +1944,11 @@
                 cars = [];
                 blocks = [];
                 arenaRadius = 150;
-                input = { w:false, s:false, a:false, d:false, space:false };
+                twoPlayerMode = config.twoPlayer === true;
+                input = {
+                    p1: { w:false, a:false, d:false, space:false },
+                    p2: { arrowup:false, arrowleft:false, arrowright:false, space2:false }
+                };
 
                 // 1. Setup Scene
                 scene = new THREE.Scene();
@@ -1965,16 +1993,36 @@
                 scene.add(dangerRing);
 
                 // 5. Entities
-                const player = createCarEntity(true, 0xff0000);
-                player.mesh.position.set(0, 0.5, 0);
-                cars.push(player);
+                if (twoPlayerMode) {
+                    // Two-player mode
+                    const player1 = createCarEntity(true, 0xff0000, 1);
+                    player1.mesh.position.set(-3, 0.5, 0);
+                    cars.push(player1);
 
-                const rivalColors = [0x00d4ff, 0xffee00, 0x00ff00];
-                rivalColors.forEach((col, i) => {
-                    const bot = createCarEntity(false, col);
-                    bot.mesh.position.set((i+1)*5, 0.5, 0);
-                    cars.push(bot);
-                });
+                    const player2 = createCarEntity(true, 0x00d4ff, 2);
+                    player2.mesh.position.set(3, 0.5, 0);
+                    cars.push(player2);
+
+                    // Add 2 bots in two-player mode
+                    const botColors = [0xffee00, 0x00ff00];
+                    botColors.forEach((col, i) => {
+                        const bot = createCarEntity(false, col);
+                        bot.mesh.position.set((i+1)*7, 0.5, 0);
+                        cars.push(bot);
+                    });
+                } else {
+                    // Single player mode
+                    const player = createCarEntity(true, 0xff0000, 1);
+                    player.mesh.position.set(0, 0.5, 0);
+                    cars.push(player);
+
+                    const rivalColors = [0x00d4ff, 0xffee00, 0x00ff00];
+                    rivalColors.forEach((col, i) => {
+                        const bot = createCarEntity(false, col);
+                        bot.mesh.position.set((i+1)*5, 0.5, 0);
+                        cars.push(bot);
+                    });
+                }
 
                 // Initial Blocks
                 for(let i=0; i<10; i++) spawnBlock();
@@ -1994,14 +2042,15 @@
                 window.addEventListener('keyup', onKey);
             }
 
-            function createCarEntity(isPlayer, color) {
+            function createCarEntity(isPlayer, color, playerNumber = 1) {
                 return {
                     isPlayer: isPlayer,
+                    playerNumber: playerNumber,
                     mesh: createCarMesh(color),
                     velocity: new THREE.Vector3(0, 0, 0),
-                    speed: 0, angle: 0, 
+                    speed: 0, angle: 0,
                     dead: false,
-                    onGround: true 
+                    onGround: true
                 };
             }
 
@@ -2168,11 +2217,31 @@
             function onKey(e) {
                 const s = (e.type === 'keydown');
                 const k = e.key.toLowerCase();
-                if(k === 'w' || k === 'arrowup') input.w = s;
-                if(k === 's' || k === 'arrowdown') input.s = s;
-                if(k === 'a' || k === 'arrowleft') input.a = s;
-                if(k === 'd' || k === 'arrowright') input.d = s;
-                if(k === ' ' || k === 'space') input.space = s;
+
+                if (twoPlayerMode) {
+                    // Player 1 controls: W, A, D, SPACE
+                    if(k === 'w') input.p1.w = s;
+                    if(k === 'a') input.p1.a = s;
+                    if(k === 'd') input.p1.d = s;
+                    if(k === ' ') input.p1.space = s;
+
+                    // Player 2 controls: ARROW KEYS
+                    if(k === 'arrowup') input.p2.arrowup = s;
+                    if(k === 'arrowleft') input.p2.arrowleft = s;
+                    if(k === 'arrowright') input.p2.arrowright = s;
+                    // For P2 jump, use SHIFT + UP or CTRL + UP
+                    if((k === 'shift' || k === 'control') && e.type === 'keydown') {
+                        // Check if arrow up is pressed for jump
+                        if (input.p2.arrowup) input.p2.space2 = s;
+                    }
+                    if(k === 'enter') input.p2.space2 = s; // Also allow Enter for P2 jump
+                } else {
+                    // Single player mode - original controls
+                    if(k === 'w' || k === 'arrowup') input.p1.w = s;
+                    if(k === 'a' || k === 'arrowleft') input.p1.a = s;
+                    if(k === 'd' || k === 'arrowright') input.p1.d = s;
+                    if(k === ' ') input.p1.space = s;
+                }
             }
 
             function update() {
@@ -2198,12 +2267,20 @@
                     if (car.isPlayer) {
                         // Always accelerate forward
                         accel = ACCEL;
-                        // Allow turning with A/D
+
+                        // Get input for this player
+                        const playerInput = car.playerNumber === 2 ? input.p2 : input.p1;
+
+                        // Allow turning with A/D (P1) or Arrow Left/Right (P2)
                         if (Math.abs(car.speed) > 0.1) {
-                            car.angle += (input.a ? 1 : input.d ? -1 : 0) * TURN_SPEED * (car.speed > 0 ? 1 : -1);
+                            const turnLeft = car.playerNumber === 2 ? playerInput.arrowleft : playerInput.a;
+                            const turnRight = car.playerNumber === 2 ? playerInput.arrowright : playerInput.d;
+                            car.angle += (turnLeft ? 1 : turnRight ? -1 : 0) * TURN_SPEED * (car.speed > 0 ? 1 : -1);
                         }
-                        // Player Jump
-                        if (input.space && car.onGround) {
+
+                        // Player Jump - P1 uses SPACE, P2 uses ENTER or SHIFT+UP
+                        const jumpKey = car.playerNumber === 2 ? playerInput.space2 : playerInput.space;
+                        if (jumpKey && car.onGround) {
                             car.velocity.y = JUMP_FORCE;
                             car.onGround = false;
                         }
@@ -2246,7 +2323,22 @@
                     if (distFromCenter > arenaRadius) {
                         // Out of bounds - instant death
                         car.dead = true;
-                        if(car.isPlayer) setTimeout(() => callbacks.onGameOver("OUT OF BOUNDS"), 500);
+                        if(car.isPlayer) {
+                            if (twoPlayerMode) {
+                                // Check if other player is alive
+                                const otherPlayerAlive = cars.some((c, idx) => c.isPlayer && c !== car && !c.dead);
+                                const message = `Player ${car.playerNumber} OUT OF BOUNDS!`;
+                                setTimeout(() => {
+                                    if (!otherPlayerAlive) {
+                                        callbacks.onGameOver(message);
+                                    } else {
+                                        // Continue with other player
+                                    }
+                                }, 500);
+                            } else {
+                                setTimeout(() => callbacks.onGameOver("OUT OF BOUNDS"), 500);
+                            }
+                        }
                     } else {
                         // Solid Ground Check
                         if (car.mesh.position.y <= 0.5) {
