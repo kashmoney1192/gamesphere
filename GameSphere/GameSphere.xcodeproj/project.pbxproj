@@ -27,7 +27,8 @@
 		EF5145C92ED3D1700069BF5D /* GameSphere.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GameSphere.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF5145D62ED3D1720069BF5D /* GameSphereTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GameSphereTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EF5145E02ED3D1720069BF5D /* GameSphereUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GameSphereUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
+		2459148765124DD3A54A0862 /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = index.html; sourceTree = "<group>"; };
+	/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EF5145CB2ED3D1700069BF5D /* GameSphere */ = {
@@ -208,10 +209,11 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		EF5145C72ED3D1700069BF5D /* Resources */ = {
+				EF5145C72ED3D1700069BF5D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4FDBF9C2EE14879A72E96EA /* index.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
