@@ -318,12 +318,26 @@
 
     <header>
         <div class="logo">GAMESPHERE</div>
-        <div class="game-info" id="header-info">SELECT GAME</div>
+        <div style="display: flex; gap: 30px; align-items: center;">
+            <div class="game-info" id="header-username">USER: ---</div>
+            <div class="game-info" id="header-highscore">HIGH: ---</div>
+            <div class="game-info" id="header-info">SELECT GAME</div>
+        </div>
     </header>
 
     <div id="app-container">
+        <!-- 0. USERNAME SETUP VIEW -->
+        <div id="view-username" class="view">
+            <div class="setup-panel" style="width: 400px; padding: 40px;">
+                <h2 class="logo" style="text-align: center; margin-bottom: 30px;">ENTER USERNAME</h2>
+                <input type="text" id="username-input" placeholder="Your Name" maxlength="20" style="width: 100%; padding: 12px; font-size: 16px; text-align: center; border: 2px solid var(--primary); background: var(--bg-dark); color: var(--text); margin-bottom: 20px;">
+                <small style="display: block; color: #aaa; text-align: center; margin-bottom: 20px;">Usernames must be unique</small>
+                <button class="btn" onclick="App.setUsername()" style="width: 100%;">PLAY</button>
+            </div>
+        </div>
+
         <!-- 1. LOBBY VIEW -->
-        <div id="view-lobby" class="view active">
+        <div id="view-lobby" class="view">
             <h2 style="font-family: 'Press Start 2P'; color:white; margin-top: 20px;">ARCADE MENU</h2>
             <p style="font-family: 'Press Start 2P'; color: #ff0055; font-size: 10px; margin: 10px 0;">A Few Games are Still in Development</p>
             <div id="lobby-grid">
@@ -419,17 +433,23 @@
          */
         const App = (() => {
             const state = {
-                currentView: 'lobby',
+                currentView: 'username',
                 gameId: null,
                 gameConfig: {},
                 isPlaying: false,
                 isPaused: false,
                 score: 0,
                 startTime: 0,
-                timerInterval: null
+                timerInterval: null,
+                username: localStorage.getItem('gameSphere_username') || null,
+                highScores: JSON.parse(localStorage.getItem('gameSphere_highScores') || '{}')
             };
 
             const els = {
+                username: document.getElementById('view-username'),
+                usernameInput: document.getElementById('username-input'),
+                headerUsername: document.getElementById('header-username'),
+                headerHighscore: document.getElementById('header-highscore'),
                 lobby: document.getElementById('view-lobby'),
                 setup: document.getElementById('view-setup'),
                 game: document.getElementById('view-game'),
@@ -487,16 +507,19 @@
                     els.setup2p.checked = false;
                 }
 
+                updateHeader();
                 switchView('setup');
             }
 
             function showLobby() {
                 switchView('lobby');
                 state.gameId = null;
+                updateHeader();
             }
 
             function switchView(viewName) {
                 document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+                if(viewName === 'username') els.username.classList.add('active');
                 if(viewName === 'lobby') els.lobby.classList.add('active');
                 if(viewName === 'setup') els.setup.classList.add('active');
                 if(viewName === 'game') els.game.classList.add('active');
@@ -643,6 +666,9 @@
             function quitGame() {
                 state.isPlaying = false;
                 clearInterval(state.timerInterval);
+                if (state.gameId && state.score > 0) {
+                    saveHighScore(state.gameId, state.score);
+                }
                 if (activeGameInstance.cleanup) activeGameInstance.cleanup();
                 showLobby();
             }
@@ -652,13 +678,63 @@
                 if (e.key === 'Escape') togglePause();
             });
 
+            function updateHeader() {
+                const gameHighScore = state.gameId && state.highScores[state.gameId] ? state.highScores[state.gameId] : 0;
+                els.headerUsername.textContent = `USER: ${state.username || '---'}`;
+                els.headerHighscore.textContent = `HIGH: ${gameHighScore}`;
+            }
+
+            function setUsername() {
+                const username = els.usernameInput.value.trim();
+                if (!username) {
+                    alert('Please enter a username');
+                    return;
+                }
+                if (username.length < 2) {
+                    alert('Username must be at least 2 characters');
+                    return;
+                }
+                if (username.length > 20) {
+                    alert('Username must be 20 characters or less');
+                    return;
+                }
+
+                state.username = username;
+                localStorage.setItem('gameSphere_username', username);
+                updateHeader();
+                showLobby();
+            }
+
+            function saveHighScore(gameId, score) {
+                if (!state.username) return;
+                if (!state.highScores[gameId] || score > state.highScores[gameId]) {
+                    state.highScores[gameId] = score;
+                    localStorage.setItem('gameSphere_highScores', JSON.stringify(state.highScores));
+                    updateHeader();
+                }
+            }
+
+            function initUsername() {
+                if (!state.username) {
+                    switchView('username');
+                    els.usernameInput.focus();
+                } else {
+                    updateHeader();
+                    showLobby();
+                }
+            }
+
             return {
                 registerGame,
                 showLobby,
                 launchGame,
                 togglePause,
                 resumeGame,
-                quitGame
+                quitGame,
+                setUsername,
+                saveHighScore,
+                initUsername,
+                updateHeader
             };
         })();
 
@@ -3183,7 +3259,7 @@
         // Init
         window.onload = () => {
             setLastUpdated();
-            App.showLobby();
+            App.initUsername();
         };
 
     </script>
