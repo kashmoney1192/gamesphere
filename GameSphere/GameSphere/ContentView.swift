@@ -33,13 +33,21 @@ struct WebViewContainer: NSViewRepresentable {
 #endif
 
 func loadHTML(into webView: WKWebView) {
+    // Try to load from bundle first
     if let htmlPath = Bundle.main.path(forResource: "index", ofType: "html") {
-        let url = URL(fileURLWithPath: htmlPath)
-        webView.load(URLRequest(url: url))
-    } else {
-        if let url = URL(string: "https://kashmoney1192.github.io/gamesphere/") {
-            webView.load(URLRequest(url: url))
+        do {
+            let htmlContent = try String(contentsOfFile: htmlPath, encoding: .utf8)
+            let baseURL = URL(fileURLWithPath: htmlPath).deletingLastPathComponent()
+            webView.loadHTMLString(htmlContent, baseURL: baseURL)
+            return
+        } catch {
+            print("Error loading HTML: \(error)")
         }
+    }
+
+    // Fallback to GitHub Pages
+    if let url = URL(string: "https://kashmoney1192.github.io/gamesphere/") {
+        webView.load(URLRequest(url: url))
     }
 }
 
